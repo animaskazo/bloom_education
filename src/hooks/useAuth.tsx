@@ -6,7 +6,8 @@ interface AuthCtx {
   user: User | null
   session: Session | null
   perfil: Perfil | null
-  loading: boolean
+  loading: boolean        // true mientras resuelve si hay sesión
+  perfilLoading: boolean  // true mientras carga el perfil de Supabase
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -14,19 +15,20 @@ interface AuthCtx {
 const AuthContext = createContext<AuthCtx | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]       = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [perfil, setPerfil]   = useState<Perfil | null>(null)
+  const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [loading, setLoading] = useState(true)
+  const [perfilLoading, setPerfilLoading] = useState(true)
 
-  // Evita que fetchPerfil de un evento anterior pise al de uno más reciente
   const fetchControllerRef = useRef<AbortController | null>(null)
 
   async function fetchPerfil(userId: string) {
-    // Cancela cualquier fetch previo en vuelo
     fetchControllerRef.current?.abort()
     const controller = new AbortController()
     fetchControllerRef.current = controller
+
+    setPerfilLoading(true)
 
     try {
       const { data, error } = await supabase
@@ -36,42 +38,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single()
         .abortSignal(controller.signal)
 
-      // Si fue abortado, ignorar
       if (controller.signal.aborted) return
 
-      if (!error) setPerfil(data)
+      if (!error && data) setPerfil(data)
     } catch {
-      // Ignorar errores de abort o red — no bloquean la UI
+      // abort o error de red — no bloquea la UI
+    } finally {
+      if (!controller.signal.aborted) setPerfilLoading(false)
     }
   }
 
   useEffect(() => {
-    // ✅ SOLO onAuthStateChange — no getSession() por separado.
-    // onAuthStateChange dispara INITIAL_SESSION al montar,
-    // que equivale exactamente a getSession() pero sin race condition.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          // No esperamos fetchPerfil para quitar el spinner —
-          // loading se levanta con el usuario ya resuelto.
-          fetchPerfil(session.user.id)
+          await fetchPerfil(session.user.id)
         } else {
           fetchControllerRef.current?.abort()
           setPerfil(null)
+          setPerfilLoading(false)
         }
 
-        // loading se resuelve en cuanto sabemos si hay sesión o no,
-        // sin depender de que fetchPerfil termine.
         setLoading(false)
       }
     )
 
-    // Fallback de seguridad: si onAuthStateChange nunca dispara
-    // (timeout de red, etc.), salimos del spinner a los 5 segundos.
-    const fallback = setTimeout(() => setLoading(false), 5000)
+    const fallback = setTimeout(() => {
+      setLoading(false)
+      setPerfilLoading(false)
+    }, 5000)
 
     return () => {
       subscription.unsubscribe()
@@ -91,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, perfil, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, perfil, loading, perfilLoading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

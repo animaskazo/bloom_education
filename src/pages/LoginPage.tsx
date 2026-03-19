@@ -51,7 +51,7 @@ export default function LoginPage() {
       return
     }
     console.log('✅ Login exitoso!')
-    navigate('/app')
+    navigate('/dashboard')
   }
 
   return (
