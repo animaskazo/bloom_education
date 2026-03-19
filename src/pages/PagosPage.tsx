@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase, PagoApoderado, EstadoPago } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader, Modal, ConfirmDialog, EmptyState, EstadoBadge, Spinner } from '@/components/ui'
-import { Plus, Pencil, Trash2, CreditCard, Search, Filter, CheckCircle, ChevronDown, ChevronRight, User, GraduationCap, DollarSign, Wand2, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, CreditCard, Search, Filter, CheckCircle, ChevronDown, ChevronRight, User, GraduationCap, DollarSign, Wand2, AlertTriangle, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const emptyForm = { apoderado_id:'', estudiante_id:'', concepto:'Mensualidad', monto:'85000', mes_periodo:'', fecha_vencimiento:'', estado:'pendiente' as EstadoPago, metodo_pago:'', notas:'' }
+const emptyForm = { apoderado_id:'', estudiante_id:'', concepto:'Mensualidad', monto:'85000', mes_periodo:'', fecha_vencimiento:'', estado:'pendiente' as EstadoPago, metodo_pago:'', notas:'', comprobante_url:'' }
 const CONCEPTOS = ['Mensualidad','Matrícula','Material Didáctico','Alimentación','Extracurricular','Otro']
 const METODOS = ['Transferencia','Efectivo','Cheque','WebPay','Otro']
 
@@ -18,18 +18,83 @@ export default function PagosPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterEstado, setFilterEstado] = useState<EstadoPago|''>('')
-  const [modal, setModal]   = useState<'add'|'edit'|null>(null)
+  const [modal, setModal]   = useState<'add'|'edit'|'quick'|null>(null)
   const [delId, setDelId]   = useState<string|null>(null)
+  const [confirmClear, setConfirmClear] = useState(false)
   const [editing, setEditing] = useState<PagoApoderado|null>(null)
   const [form, setForm]     = useState({ ...emptyForm })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
+  const [success, setSuccess] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [clearing, setClearing]     = useState(false)
   const [expandedApod, setExpandedApod] = useState<string[]>([])
   const [expandedEst, setExpandedEst]   = useState<string[]>([])
+  const [view, setView] = useState<'list' | 'grid'>('grid')
+  const [cursos, setCursos] = useState<any[]>([])
+  const [quickPay, setQuickPay] = useState<PagoApoderado | null>(null)
+  const [quickPayData, setQuickPayData] = useState({ metodo_pago: 'Transferencia', fecha_pago: new Date().toISOString().split('T')[0] })
+  const [expandedCursos, setExpandedCursos] = useState<string[]>([])
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const toggleCurso = (id: string) => setExpandedCursos(prev => prev.includes(id) ? prev.filter(i => i!==id) : [...prev, id])
+
+  const MESES_ES = ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
   const toggleApod = (id: string) => setExpandedApod(prev => prev.includes(id) ? prev.filter(i => i!==id) : [...prev, id])
   const toggleEst = (id: string) => setExpandedEst(prev => prev.includes(id) ? prev.filter(i => i!==id) : [...prev, id])
+
+  async function uploadComprobante(f: File) {
+    const fileExt = f.name.split('.').pop()
+    const fileName = `${crypto.randomUUID()}.${fileExt}`
+    const filePath = `${perfil?.establecimiento_id}/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('pagos')
+      .upload(filePath, f)
+
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage
+      .from('pagos')
+      .getPublicUrl(filePath)
+
+    return data.publicUrl
+  }
+
+  async function handleQuickPay() {
+    if (!quickPay) return
+    setSaving(true)
+    setError('')
+    
+    try {
+        let url = null
+        if (file) {
+            setUploading(true)
+            url = await uploadComprobante(file)
+            setUploading(false)
+        }
+
+        const { error } = await supabase.from('pagos_apoderados').update({ 
+            estado:'pagado', 
+            fecha_pago: quickPayData.fecha_pago,
+            metodo_pago: quickPayData.metodo_pago,
+            comprobante_url: url
+        }).eq('id', quickPay.id)
+        
+        if (error) throw error
+        
+        setQuickPay(null)
+        setFile(null)
+        load()
+    } catch (e: any) {
+        setError(e.message)
+    } finally {
+        setSaving(false)
+        setUploading(false)
+    }
+  }
 
   async function generarPagosAnuales() {
     if (!perfil?.establecimiento_id) return
@@ -60,7 +125,6 @@ export default function PagosPage() {
         const mapTitular: Record<string, string> = {}
         rels?.forEach(r => mapTitular[r.estudiante_id] = r.apoderado_id)
 
-        const meses = ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
         const year = new Date().getFullYear()
         const allPayments: any[] = []
 
@@ -68,7 +132,7 @@ export default function PagosPage() {
             const apoderadoId = mapTitular[est.id]
             if (!apoderadoId) return 
 
-            meses.forEach((mes, idx) => {
+            MESES_ES.forEach((mes, idx) => {
                 const monthIndex = idx + 2
                 const dueDate = new Date(year, monthIndex, 5)
 
@@ -98,26 +162,53 @@ export default function PagosPage() {
     } catch (e: any) {
         setError('Error al generar pagos: ' + e.message)
     } finally {
-        setGenerating(false)
+      setGenerating(false)
+    }
+  }
+
+  async function limpiarPagos() {
+    if (!perfil?.establecimiento_id) return
+    try {
+      setClearing(true)
+      setError('')
+      // Filter by establishment to ensure authorization
+      const { error } = await supabase
+        .from('pagos_apoderados')
+        .delete()
+        .eq('establecimiento_id', perfil.establecimiento_id)
+      
+      if (error) throw error
+      
+      setSuccess('Se han eliminado todos los pagos correctamente.')
+      load()
+    } catch (e: any) {
+      console.error('Error clearing payments:', e)
+      setError(`Error al eliminar los pagos: ${e.message}`)
+    } finally {
+      setClearing(false)
+      setConfirmClear(false)
     }
   }
 
   async function load() {
     setLoading(true)
-    const [{ data: pagos }, { data: apod }, { data: est }] = await Promise.all([
-      supabase.from('pagos_apoderados').select('*, apoderados(nombre,apellido,rut), estudiantes(nombre,apellido,rut)').order('fecha_vencimiento'),
+    const [{ data: pagos }, { data: apod }, { data: est }, { data: cur }] = await Promise.all([
+      supabase.from('pagos_apoderados').select('*, apoderados(nombre,apellido,rut), estudiantes(nombre,apellido,rut,curso_id)').order('fecha_vencimiento'),
       supabase.from('apoderados').select('id,nombre,apellido,rut').order('apellido'),
-      supabase.from('estudiantes').select('id,nombre,apellido,rut').eq('estado','activo').order('apellido'),
+      supabase.from('estudiantes').select('id,nombre,apellido,rut,curso_id').eq('estado','activo').order('apellido'),
+      supabase.from('cursos').select('id,nombre').order('nombre')
     ])
-    setRows(pagos??[]); setApoderados(apod??[]); setEstudiantes(est??[])
+    setRows(pagos??[]); setApoderados(apod??[]); setEstudiantes(est??[]); setCursos(cur??[])
+    if (cur && cur.length > 0) setExpandedCursos([cur[0].id])
+    else setExpandedCursos(['unassigned'])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
 
-  function openAdd() { setForm({...emptyForm}); setEditing(null); setError(''); setModal('add') }
+  function openAdd() { setForm({...emptyForm, comprobante_url:''}); setEditing(null); setError(''); setModal('add'); setFile(null) }
   function openEdit(r: any) {
-    setForm({ apoderado_id:r.apoderado_id, estudiante_id:r.estudiante_id, concepto:r.concepto, monto:r.monto.toString(), mes_periodo:r.mes_periodo??'', fecha_vencimiento:r.fecha_vencimiento, estado:r.estado, metodo_pago:r.metodo_pago??'', notas:r.notas??'' })
-    setEditing(r); setError(''); setModal('edit')
+    setForm({ apoderado_id:r.apoderado_id, estudiante_id:r.estudiante_id, concepto:r.concepto, monto:r.monto.toString(), mes_periodo:r.mes_periodo??'', fecha_vencimiento:r.fecha_vencimiento, estado:r.estado, metodo_pago:r.metodo_pago??'', notas:r.notas??'', comprobante_url:r.comprobante_url??'' })
+    setEditing(r); setError(''); setModal('edit'); setFile(null)
   }
 
   async function marcarPagado(id: string) {
@@ -132,25 +223,44 @@ export default function PagosPage() {
     }
 
     setSaving(true); setError('')
-    const payload = { 
-      apoderado_id:form.apoderado_id, 
-      estudiante_id:form.estudiante_id, 
-      concepto:form.concepto, 
-      monto:parseFloat(form.monto), 
-      mes_periodo:form.mes_periodo||null, 
-      fecha_vencimiento:form.fecha_vencimiento, 
-      estado:form.estado, 
-      metodo_pago:form.metodo_pago||null, 
-      notas:form.notas||null,
-      establecimiento_id: perfil.establecimiento_id
+    
+    try {
+        let url = form.comprobante_url
+        if (file) {
+            setUploading(true)
+            url = await uploadComprobante(file)
+            setUploading(false)
+        }
+
+        const payload = { 
+            apoderado_id:form.apoderado_id, 
+            estudiante_id:form.estudiante_id, 
+            concepto:form.concepto, 
+            monto:parseFloat(form.monto), 
+            mes_periodo:form.mes_periodo||null, 
+            fecha_vencimiento:form.fecha_vencimiento, 
+            estado:form.estado, 
+            metodo_pago:form.metodo_pago||null, 
+            notas:form.notas||null,
+            comprobante_url: url,
+            establecimiento_id: perfil.establecimiento_id
+        }
+
+        const { error: e } = editing
+            ? await supabase.from('pagos_apoderados').update(payload).eq('id', editing.id)
+            : await supabase.from('pagos_apoderados').insert([payload])
+
+        if (e) throw e
+        
+        setSaving(false)
+        setModal(null)
+        setFile(null)
+        load()
+    } catch (e: any) {
+        setError(e.message)
+        setSaving(false)
+        setUploading(false)
     }
-
-    const { error: e } = editing
-      ? await supabase.from('pagos_apoderados').update(payload).eq('id', editing.id)
-      : await supabase.from('pagos_apoderados').insert([payload])
-
-    if (e) { setError(e.message); setSaving(false); return }
-    setSaving(false); setModal(null); load()
   }
 
   async function del() {
@@ -173,8 +283,8 @@ export default function PagosPage() {
   }
   const fmt = (n:number) => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n)
 
-  // Agrupación de datos: Apoderado > Alumno > Pagos
-  const grouped = filtered.reduce((acc, r) => {
+  // Agrupación para Lista
+  const groupedList = filtered.reduce((acc, r) => {
     const apId = r.apoderado_id;
     if (!acc[apId]) acc[apId] = { apoderado: (r as any).apoderados, estudiantes: {} };
     const estId = r.estudiante_id;
@@ -182,6 +292,22 @@ export default function PagosPage() {
     acc[apId].estudiantes[estId].pagos.push(r);
     return acc;
   }, {} as Record<string, any>);
+
+  // Agrupación para Grilla: Curso -> [Estudiantes con sus 10 pagos]
+  const gridData = cursos.map(curso => {
+    const estsEnCurso = estudiantes.filter(e => e.curso_id === curso.id);
+    const dataAlumnos = estsEnCurso.map(est => {
+        const pagosEst = rows.filter(p => p.estudiante_id === est.id && p.concepto === 'Mensualidad');
+        return {
+            ...est,
+            pagos: MESES_ES.map(mes => {
+                const p = pagosEst.find(p => p.mes_periodo?.startsWith(mes));
+                return p || null;
+            })
+        }
+    });
+    return { ...curso, alumnos: dataAlumnos };
+  }).filter(c => c.alumnos.length > 0);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -191,9 +317,17 @@ export default function PagosPage() {
         action={
           <div className="flex gap-2">
             <button 
+              className="btn-ghost text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100" 
+              onClick={() => setConfirmClear(true)}
+              disabled={clearing || generating}
+              title="Eliminar todos los pagos"
+            >
+              <Trash2 className={`w-4 h-4 ${clearing ? 'animate-pulse' : ''}`}/>
+            </button>
+            <button 
               className="btn-secondary border-brand-200 text-brand-600 hover:bg-brand-50" 
               onClick={generarPagosAnuales}
-              disabled={generating}
+              disabled={generating || clearing}
             >
               <Wand2 className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`}/>
               {generating ? 'Generando...' : 'Generar Año Escolar'}
@@ -228,26 +362,131 @@ export default function PagosPage() {
 
       <div className="card">
         <div className="card-header flex-wrap gap-2">
-          <h3 className="section-title">Listado de Cobros Agrupados</h3>
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+             <button 
+                onClick={() => setView('grid')}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${view === 'grid' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+                Grilla de Cursos
+             </button>
+             <button 
+                onClick={() => setView('list')}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${view === 'list' ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+                Lista de Cobros
+             </button>
+          </div>
+
           <div className="flex items-center gap-2 ml-auto flex-wrap">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
               <input className="input pl-9 w-48" placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} />
             </div>
-            <select className="input w-36" value={filterEstado} onChange={e=>setFilterEstado(e.target.value as any)}>
-              <option value="">Todos los estados</option>
-              {['pendiente', 'pagado', 'vencido', 'anulado'].map(st => <option key={st} value={st}>{st.charAt(0).toUpperCase() + st.slice(1)}</option>)}
-            </select>
+            {view === 'list' && (
+                <select className="input w-36" value={filterEstado} onChange={e=>setFilterEstado(e.target.value as any)}>
+                    <option value="">Todos los estados</option>
+                    {['pendiente', 'pagado', 'vencido', 'anulado'].map(st => <option key={st} value={st}>{st.charAt(0).toUpperCase() + st.slice(1)}</option>)}
+                </select>
+            )}
           </div>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12"><Spinner className="w-6 h-6 text-brand-500"/></div>
+        ) : view === 'grid' ? (
+           <div className="overflow-x-auto p-4">
+              <div className="space-y-4">
+                 {gridData.map(curso => (
+                    <div key={curso.id} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white hover:border-slate-200 transition-all">
+                       <div 
+                          className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${expandedCursos.includes(curso.id) ? 'bg-slate-50/50' : 'hover:bg-slate-50/30'}`}
+                          onClick={() => toggleCurso(curso.id)}
+                       >
+                          <div className="flex items-center gap-3">
+                             <div className="w-2 h-6 bg-brand-500 rounded-full" />
+                             <h3 className="font-bold text-slate-800 uppercase tracking-wider text-sm">{curso.nombre}</h3>
+                             <span className="text-[10px] bg-white text-slate-500 px-2 py-0.5 rounded-full font-bold shadow-sm">{curso.alumnos.length} Alumnos</span>
+                          </div>
+                          {expandedCursos.includes(curso.id) ? (
+                            <ChevronDown className="w-5 h-5 text-slate-300"/>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">Click para expandir</span>
+                                <ChevronRight className="w-5 h-5 text-slate-300"/>
+                            </div>
+                          )}
+                       </div>
+
+                       {expandedCursos.includes(curso.id) && (
+                        <div className="px-4 pb-4 animate-fade-in overflow-x-auto">
+                          <table className="w-full border-collapse table-fixed">
+                              <thead>
+                                <tr>
+                                    <th className="text-left py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 rounded-l-xl border-b border-slate-100 w-1/4">Alumno</th>
+                                    {MESES_ES.map(m => (
+                                      <th key={m} className="text-center py-3 px-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 border-b border-slate-100 w-10">{m.slice(0,3)}</th>
+                                    ))}
+                                    <th className="text-right py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50 rounded-r-xl border-b border-slate-100 w-16">%</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {curso.alumnos.map((alum: any) => {
+                                    const payCount = alum.pagos.filter((p: any) => p?.estado === 'pagado').length;
+                                    return (
+                                      <tr key={alum.id} className="group hover:bg-slate-50/50 transition-colors">
+                                          <td className="py-3 px-4 border-b border-slate-50 truncate">
+                                            <div className="flex flex-col truncate">
+                                                <span className="text-sm font-semibold text-slate-700 capitalize truncate">{alum.nombre.toLowerCase()} {alum.apellido.toLowerCase()}</span>
+                                                <span className="text-[9px] text-slate-400 font-mono tracking-tighter uppercase">{alum.rut}</span>
+                                            </div>
+                                          </td>
+                                          {alum.pagos.map((p: any, idx: number) => (
+                                            <td key={idx} className="py-3 px-1 border-b border-slate-50 text-center">
+                                                {!p ? (
+                                                  <div className="w-7 h-7 mx-auto rounded-lg bg-slate-100/50 border border-dashed border-slate-200" title="No generado" />
+                                                ) : (
+                                                  <div className="relative w-fit mx-auto">
+                                                    <button 
+                                                        onClick={() => p.estado === 'pendiente' ? setQuickPay(p) : openEdit(p)}
+                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shadow-sm
+                                                          ${p.estado === 'pagado' ? 'bg-emerald-500 text-white shadow-emerald-200' : 
+                                                            p.estado === 'vencido' ? 'bg-red-500 text-white shadow-red-100' : 
+                                                            'bg-white border border-slate-200 text-slate-300 hover:border-brand-300 hover:text-brand-500'}
+                                                        `}
+                                                        title={p.estado === 'pagado' ? `Pagado: ${p.fecha_pago} (${p.metodo_pago})` : `${MESES_ES[idx]}: ${p.estado.toUpperCase()}`}
+                                                    >
+                                                        {p.estado === 'pagado' ? <CheckCircle className="w-4 h-4"/> : <DollarSign className="w-4 h-4 opacity-40 group-hover:opacity-100"/>}
+                                                    </button>
+                                                    {p.comprobante_url && (
+                                                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100">
+                                                        <FileText className="w-2 h-2 text-brand-600" />
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
+                                            </td>
+                                          ))}
+                                          <td className="py-3 px-4 border-b border-slate-50 text-right">
+                                            <span className={`text-xs font-bold ${payCount === 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                                {payCount}/10
+                                            </span>
+                                          </td>
+                                      </tr>
+                                    )
+                                })}
+                              </tbody>
+                          </table>
+                        </div>
+                       )}
+                    </div>
+                 ))}
+              </div>
+           </div>
         ) : filtered.length === 0 ? (
           <EmptyState icon={CreditCard} title="Sin cobros" description="No hay registros de pago." action={<button className="btn-primary btn-sm" onClick={openAdd}><Plus className="w-3.5 h-3.5"/>Crear cobro</button>} />
         ) : (
           <div className="p-2 space-y-3">
-            {Object.entries(grouped).map(([apId, data]: [string, any]) => (
+            {Object.entries(groupedList).map(([apId, data]: [string, any]) => (
               <div key={apId} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white hover:border-slate-200 transition-all">
                 {/* NIVEL 1: APODERADO */}
                 <div 
@@ -306,6 +545,7 @@ export default function PagosPage() {
                                   <th>Monto</th>
                                   <th>Vencimiento</th>
                                   <th>Estado</th>
+                                  <th className="text-center">Comprobante</th>
                                   <th className="text-right">Acciones</th>
                                 </tr>
                               </thead>
@@ -317,6 +557,13 @@ export default function PagosPage() {
                                     <td className="font-bold text-xs">{fmt(Number(p.monto))}</td>
                                     <td className="text-[11px]">{format(new Date(p.fecha_vencimiento), 'dd/MM/yyyy')}</td>
                                     <td><EstadoBadge estado={p.estado}/></td>
+                                    <td className="text-center">
+                                      {p.comprobante_url ? (
+                                        <a href={p.comprobante_url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center p-1.5 bg-brand-50 text-brand-700 rounded-lg hover:bg-brand-100 transition-colors" title="Ver comprobante">
+                                          <FileText className="w-3.5 h-3.5" />
+                                        </a>
+                                      ) : '—'}
+                                    </td>
                                     <td>
                                       <div className="flex justify-end gap-1">
                                         {p.estado === 'pendiente' && (
@@ -397,13 +644,95 @@ export default function PagosPage() {
             <label className="label">Notas</label>
             <input className="input" value={form.notas} onChange={e => setForm({...form, notas: e.target.value})} placeholder="Observaciones opcionales"/>
           </div>
+          <div className="form-group col-span-2">
+            <label className="label">Comprobante de Pago</label>
+            <div className="flex items-center gap-3">
+              <input 
+                type="file" 
+                className="hidden" 
+                id="file-upload" 
+                accept="image/*,.pdf"
+                onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
+              />
+              <label 
+                htmlFor="file-upload"
+                className="btn-secondary w-full justify-center cursor-pointer"
+              >
+                {file ? file.name : 'Seleccionar archivo'}
+              </label>
+              {form.comprobante_url && (
+                <a 
+                  href={form.comprobante_url} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="btn-ghost text-brand-600 font-bold"
+                >
+                  Ver actual
+                </a>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Sube una imagen o PDF del comprobante de transferencia o depósito.</p>
+          </div>
           <div className="col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
             <button className="btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
             <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </div>
       </Modal>
-      <ConfirmDialog open={!!delId} onClose={() => setDelId(null)} onConfirm={del} title="Eliminar Cobro" message="¿Eliminar este registro de pago?" />
+      <Modal open={quickPay!==null} onClose={() => setQuickPay(null)} title="Registrar Pago" size="sm">
+        <div className="p-6 space-y-4">
+          <div className="text-center pb-2">
+            <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">{quickPay?.mes_periodo}</p>
+            <p className="text-2xl font-black text-slate-800">{fmt(Number(quickPay?.monto || 0))}</p>
+          </div>
+          
+          <div className="form-group">
+            <label className="label">Método de Pago</label>
+            <select className="input" value={quickPayData.metodo_pago} onChange={e => setQuickPayData({...quickPayData, metodo_pago: e.target.value})}>
+              {METODOS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="label">Fecha de Pago</label>
+            <input className="input" type="date" value={quickPayData.fecha_pago} onChange={e => setQuickPayData({...quickPayData, fecha_pago: e.target.value})} />
+          </div>
+
+          <div className="form-group">
+            <label className="label">Comprobante (Opcional)</label>
+            <input 
+              type="file" 
+              accept="image/*,.pdf"
+              className="text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer"
+              onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 pt-4">
+            <button className="btn-primary w-full py-3" onClick={handleQuickPay} disabled={saving}>{saving ? 'Procesando...' : 'Confirmar Pago'}</button>
+            <button className="btn-ghost text-slate-400 text-xs" onClick={() => setQuickPay(null)}>Cancelar</button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog 
+        open={!!delId} 
+        onClose={() => setDelId(null)} 
+        onConfirm={del} 
+        title="Eliminar Cobro" 
+        message="¿Eliminar este registro de pago?" 
+        confirmLabel="Sí, eliminar"
+      />
+      {/* Confirmar Limpiar Todo */}
+      <ConfirmDialog
+        open={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        onConfirm={limpiarPagos}
+        title="¿Eliminar todos los pagos?"
+        message="Esta acción eliminará todos los registros de mensualidades de todos los alumnos de forma permanente. ¿Estás seguro de que deseas continuar?"
+        confirmLabel="Sí, eliminar todo"
+        loading={clearing}
+      />
     </div>
   )
 }

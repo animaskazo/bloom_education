@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, Estudiante, Curso, EstadoGeneral } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader, Modal, ConfirmDialog, EmptyState, EstadoBadge, Spinner } from '@/components/ui'
-import { Plus, Pencil, Trash2, GraduationCap, Search, Filter } from 'lucide-react'
+import { Plus, Pencil, Trash2, GraduationCap, Search, Filter, ChevronDown, ChevronRight, User } from 'lucide-react'
 import { format, differenceInYears } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -21,6 +21,11 @@ export default function EstudiantesPage() {
   const [form, setForm]       = useState({ ...emptyForm })
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
+  const [expandedCursos, setExpandedCursos] = useState<string[]>([])
+
+  const toggleCurso = (id: string) => {
+    setExpandedCursos(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
 
   async function load() {
     setLoading(true)
@@ -30,6 +35,9 @@ export default function EstudiantesPage() {
     ])
     setRows(est ?? [])
     setCursos(cur ?? [])
+    // Expand only the first course by default
+    if (cur && cur.length > 0) setExpandedCursos([cur[0].id])
+    else setExpandedCursos(['unassigned'])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -109,52 +117,87 @@ export default function EstudiantesPage() {
         ))}
       </div>
 
-      <div className="card">
-        <div className="card-header flex-wrap gap-2">
-          <h3 className="section-title">Listado de Estudiantes</h3>
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input className="input pl-9 w-52" placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} />
-            </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <select className="input pl-9 w-44" value={filterCurso} onChange={e=>setFilterCurso(e.target.value)}>
-                <option value="">Todos los cursos</option>
-                {cursos.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.letra?' '+c.letra:''}</option>)}
-              </select>
-            </div>
+      <div className="space-y-4">
+        {loading ? (
+          <div className="card py-12 flex justify-center"><Spinner className="w-6 h-6 text-brand-500" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="card">
+            <EmptyState icon={GraduationCap} title="Sin estudiantes" description="No hay estudiantes que coincidan con la búsqueda." action={<button className="btn-primary btn-sm" onClick={openAdd}><Plus className="w-3.5 h-3.5"/>Agregar</button>} />
           </div>
-        </div>
-        <div className="table-wrapper">
-          {loading ? (
-            <div className="flex justify-center py-12"><Spinner className="w-6 h-6 text-brand-500" /></div>
-          ) : filtered.length === 0 ? (
-            <EmptyState icon={GraduationCap} title="Sin estudiantes" description="No hay estudiantes que coincidan." action={<button className="btn-primary btn-sm" onClick={openAdd}><Plus className="w-3.5 h-3.5"/>Agregar</button>} />
-          ) : (
-            <table className="table">
-              <thead><tr><th>Nombre</th><th>RUT</th><th>Edad</th><th>Curso</th><th>Nivel</th><th>Estado</th><th className="text-right">Acciones</th></tr></thead>
-              <tbody>
-                {filtered.map((r: any)=>(
-                  <tr key={r.id}>
-                    <td><div className="font-medium text-slate-800">{r.nombre} {r.apellido}</div><div className="text-xs text-slate-400">{r.genero==='F'?'Femenino':r.genero==='M'?'Masculino':'—'}</div></td>
-                    <td className="font-mono text-sm">{r.rut}</td>
-                    <td>{edad(r.fecha_nacimiento)}</td>
-                    <td>{cursoName(r)}</td>
-                    <td>{r.cursos ? <span className={nivelColors[r.cursos.nivel]}>{nivelLabel[r.cursos.nivel]}</span> : '—'}</td>
-                    <td><EstadoBadge estado={r.estado} /></td>
-                    <td>
-                      <div className="flex justify-end gap-1">
-                        <button className="btn-ghost btn-sm p-1.5" onClick={()=>openEdit(r)}><Pencil className="w-3.5 h-3.5"/></button>
-                        <button className="btn-ghost btn-sm p-1.5 text-red-500 hover:bg-red-50" onClick={()=>setDelId(r.id)}><Trash2 className="w-3.5 h-3.5"/></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        ) : (
+          (() => {
+            const grouped: Record<string, any> = { unassigned: { nombre: 'Sin Curso Asignado', estudiantes: [] } }
+            cursos.forEach(c => { grouped[c.id] = { ...c, estudiantes: [] } })
+            filtered.forEach(r => {
+              const key = r.curso_id || 'unassigned'
+              if (grouped[key]) grouped[key].estudiantes.push(r)
+              else {
+                // If course is inactive but student is linked
+                if (!grouped[r.curso_id]) grouped[r.curso_id] = { nombre: r.cursos?.nombre || 'Curso Desconocido', estudiantes: [r] }
+                else grouped[r.curso_id].estudiantes.push(r)
+              }
+            })
+
+            return Object.entries(grouped)
+              .filter(([_, data]) => data.estudiantes.length > 0)
+              .map(([id, data]) => (
+              <div key={id} className="card overflow-hidden border-slate-100 hover:border-slate-200 transition-all shadow-sm">
+                <div 
+                  className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${expandedCursos.includes(id) ? 'bg-slate-50/50' : 'hover:bg-slate-50/30'}`}
+                  onClick={() => toggleCurso(id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-6 bg-brand-500 rounded-full" />
+                    <h4 className="font-bold text-slate-800 uppercase tracking-wider text-sm">{data.nombre}{data.letra ? ` ${data.letra}` : ''}</h4>
+                    <span className="text-[10px] bg-white text-slate-500 px-2 py-0.5 rounded-full font-bold shadow-sm">
+                      {data.estudiantes.length} Alumnos
+                    </span>
+                  </div>
+                  {expandedCursos.includes(id) ? (
+                    <ChevronDown className="w-5 h-5 text-slate-300"/>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase transition-all opacity-0 group-hover:opacity-100 mr-1">Expandir</span>
+                        <ChevronRight className="w-5 h-5 text-slate-300"/>
+                    </div>
+                  )}
+                </div>
+
+                {expandedCursos.includes(id) && (
+                  <div className="table-wrapper border-t border-slate-50 animate-fade-in">
+                    <table className="table">
+                      <thead><tr><th>Nombre</th><th>RUT</th><th>Edad</th><th>Nivel</th><th>Estado</th><th className="text-right">Acciones</th></tr></thead>
+                      <tbody>
+                        {data.estudiantes.map((r: any) => (
+                          <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td>
+                              <div className="font-medium text-slate-800">{r.nombre} {r.apellido}</div>
+                              <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+                                {r.genero === 'F' ? 'Femenino' : r.genero === 'M' ? 'Masculino' : '—'}
+                              </div>
+                            </td>
+                            <td className="font-mono text-sm text-slate-500">{r.rut}</td>
+                            <td className="text-sm">{edad(r.fecha_nacimiento)}</td>
+                            <td>
+                              {r.cursos ? <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${nivelColors[r.cursos.nivel]}`}>{nivelLabel[r.cursos.nivel]}</span> : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td><EstadoBadge estado={r.estado} /></td>
+                            <td>
+                              <div className="flex justify-end gap-1">
+                                <button className="btn-ghost btn-sm p-1.5 hover:bg-white" onClick={() => openEdit(r)}><Pencil className="w-3.5 h-3.5"/></button>
+                                <button className="btn-ghost btn-sm p-1.5 text-red-500 hover:bg-red-50" onClick={() => setDelId(r.id)}><Trash2 className="w-3.5 h-3.5"/></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))
+          })()
+        )}
       </div>
 
       <Modal open={modal!==null} onClose={()=>setModal(null)} title={modal==='add'?'Agregar Estudiante':'Editar Estudiante'} size="lg">

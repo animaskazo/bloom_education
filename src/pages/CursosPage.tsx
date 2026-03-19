@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, Curso, Personal, EstadoGeneral, NivelCurso } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader, Modal, ConfirmDialog, EmptyState, EstadoBadge, Spinner } from '@/components/ui'
-import { Plus, Pencil, Trash2, BookOpen } from 'lucide-react'
+import { Plus, Pencil, Trash2, BookOpen, Wand2, AlertTriangle, CheckCircle } from 'lucide-react'
 
 const nivelLabel: Record<string,string> = { pre_basica:'Pre-básica', basica:'Básica', media:'Media' }
 const nivelColors: Record<string,string> = { pre_basica:'badge-purple', basica:'badge-blue', media:'badge-green' }
@@ -20,7 +20,76 @@ export default function CursosPage() {
   const [editing, setEditing] = useState<Curso|null>(null)
   const [form, setForm]       = useState({ ...emptyForm })
   const [saving, setSaving]   = useState(false)
+  const [seeding, setSeeding] = useState(false)
   const [error, setError]     = useState('')
+  const [success, setSuccess] = useState('')
+
+  async function generarNivelesJardin() {
+    if (!perfil?.establecimiento_id) return
+    if (!confirm('¿Deseas generar automáticamente los 6 niveles de Jardín Infantil con 10 alumnos de prueba en cada uno?')) return
+
+    setSeeding(true)
+    setError('')
+    setSuccess('')
+
+    const niveles = [
+      { nombre: 'Sala Cuna Menor', edad: 1 },
+      { nombre: 'Sala Cuna Mayor', edad: 2 },
+      { nombre: 'Nivel Medio Menor', edad: 3 },
+      { nombre: 'Nivel Medio Mayor', edad: 4 },
+      { nombre: 'Pre-Kinder (NT1)', edad: 5 },
+      { nombre: 'Kinder (NT2)', edad: 6 },
+    ]
+
+    try {
+      for (const n of niveles) {
+        // 1. Crear Curso
+        const { data: curso, error: cErr } = await supabase.from('cursos').insert({
+          nombre: n.nombre,
+          nivel: 'pre_basica',
+          año: new Date().getFullYear(),
+          capacidad_max: 20,
+          estado: 'activo',
+          establecimiento_id: perfil.establecimiento_id
+        }).select().single()
+
+        if (cErr) throw new Error(`Error en curso ${n.nombre}: ${cErr.message}`)
+
+        // 2. Crear 10 Estudiantes
+        const names = ['Sofia', 'Mateo', 'Isabella', 'Liam', 'Valentina', 'Benjamin', 'Camila', 'Lucas', 'Mia', 'Thiago']
+        const lastNames = ['Gonzales', 'Rodriguez', 'Muñoz', 'Rojas', 'Díaz', 'Pérez', 'Soto', 'Contreras', 'Silva', 'Martínez']
+
+        const students = names.map((name, i) => {
+          const birth = new Date()
+          birth.setFullYear(new Date().getFullYear() - n.edad)
+          birth.setMonth(Math.floor(Math.random() * 12))
+          birth.setDate(Math.floor(Math.random() * 28) + 1)
+
+          return {
+            rut: `${15000000 + Math.floor(Math.random() * 10000000)}-${Math.floor(Math.random() * 9)}`,
+            nombre: name,
+            apellido: lastNames[i] || 'Apellido',
+            fecha_nacimiento: birth.toISOString().split('T')[0],
+            genero: i % 2 === 0 ? 'M' : 'F',
+            direccion: `Avenida Jardín #${i + 100}`,
+            nacionalidad: 'Chilena',
+            curso_id: curso.id,
+            estado: 'activo',
+            establecimiento_id: perfil.establecimiento_id
+          }
+        })
+
+        const { error: sErr } = await supabase.from('estudiantes').insert(students)
+        if (sErr) throw new Error(`Error en alumnos de ${n.nombre}: ${sErr.message}`)
+      }
+      setSuccess('Niveles y alumnos generados exitosamente.')
+      load()
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -72,8 +141,24 @@ export default function CursosPage() {
 
   async function del() {
     if (!delId) return
-    await supabase.from('cursos').delete().eq('id', delId)
-    setDelId(null); load()
+    setError('')
+    
+    // Check if there are students
+    const { data: ests } = await supabase.from('estudiantes').select('id').eq('curso_id', delId).limit(1)
+    if (ests && ests.length > 0) {
+      setError('No se puede eliminar un curso que tiene alumnos asignados. Mueve o elimina a los alumnos primero.')
+      setDelId(null)
+      return
+    }
+
+    const { error: e } = await supabase.from('cursos').delete().eq('id', delId)
+    if (e) setError('Error al eliminar: ' + e.message)
+    else {
+      setSuccess('Curso eliminado correctamente.')
+      setTimeout(() => setSuccess(''), 3000)
+      load()
+    }
+    setDelId(null)
   }
 
   const byNivel = (n: string) => rows.filter(r=>r.nivel===n)
@@ -83,8 +168,36 @@ export default function CursosPage() {
       <PageHeader
         title="Gestión de Cursos"
         subtitle={`${rows.filter(r=>r.estado==='activo').length} cursos activos — Año ${new Date().getFullYear()}`}
-        action={<button className="btn-primary" onClick={openAdd}><Plus className="w-4 h-4"/>Agregar curso</button>}
+        action={
+          <div className="flex gap-2">
+            <button 
+              className="btn-secondary border-brand-200 text-brand-600 hover:bg-brand-50" 
+              onClick={generarNivelesJardin}
+              disabled={seeding}
+            >
+              <Wand2 className={`w-4 h-4 ${seeding ? 'animate-spin' : ''}`}/>
+              {seeding ? 'Generando Jardín...' : 'Poblar Jardín'}
+            </button>
+            <button className="btn-primary" onClick={openAdd}><Plus className="w-4 h-4"/>Agregar curso</button>
+          </div>
+        }
       />
+
+      {error && (
+        <div className="bg-red-50 border border-red-100 text-red-700 p-4 rounded-2xl flex items-center gap-3 animate-shake font-medium text-sm">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0"/>
+          <p>{error}</p>
+          <button className="ml-auto hover:underline" onClick={()=>setError('')}>Cerrar</button>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 p-4 rounded-2xl flex items-center gap-3 font-medium text-sm">
+          <CheckCircle className="w-5 h-5 flex-shrink-0"/>
+          <p>{success}</p>
+          <button className="ml-auto hover:underline" onClick={()=>setSuccess('')}>Cerrar</button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">

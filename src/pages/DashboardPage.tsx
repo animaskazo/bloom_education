@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { StatCard } from '@/components/ui'
 import { Users, GraduationCap, BookOpen, CreditCard, MessageSquare, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 
 interface Stats {
   personal: number
@@ -13,24 +13,21 @@ interface Stats {
   pagosPendientes: number
   pagosVencidos: number
   comunicados: number
+  valorMensualidad: number
+  recaudadoMes: number
+  pendienteMes: number
+  gastosMes: number
+  balanceNeto: number
 }
+
+const MESES = ['Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+const MESES_FULL = ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 const COLORS = ['#0870f5', '#10b981', '#f59e0b', '#ef4444']
 
-const pagosMes = [
-  { mes: 'Ago', pagado: 2800000, pendiente: 400000 },
-  { mes: 'Sep', pagado: 3100000, pendiente: 320000 },
-  { mes: 'Oct', pagado: 2950000, pendiente: 580000 },
-  { mes: 'Nov', pagado: 3300000, pendiente: 210000 },
-  { mes: 'Dic', pagado: 3050000, pendiente: 390000 },
-  { mes: 'Ene', pagado: 3400000, pendiente: 280000 },
-]
 
-const nivelData = [
-  { name: 'Pre-básica', value: 45 },
-  { name: 'Básica', value: 280 },
-  { name: 'Media', value: 160 },
-]
+let nivelData: { name: string, value: number }[] = []
+const levelNames: Record<string, string> = { pre_basica: 'Pre-básica', basica: 'Básica', media: 'Media' }
 
 function fmt(n: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
@@ -39,7 +36,12 @@ function fmt(n: number) {
 export default function DashboardPage() {
   const { perfil } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState<Stats>({ personal: 0, estudiantes: 0, cursos: 0, pagosPendientes: 0, pagosVencidos: 0, comunicados: 0 })
+  const [stats, setStats] = useState<Stats>({ 
+    personal: 0, estudiantes: 0, cursos: 0, pagosPendientes: 0, pagosVencidos: 0, comunicados: 0, valorMensualidad: 0,
+    recaudadoMes: 0, pendienteMes: 0, gastosMes: 0, balanceNeto: 0
+  })
+  const [chartData, setChartData] = useState<any[]>([])
+  const [pieData, setPieData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -51,40 +53,91 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!perfil) return
     async function load() {
-      const [personal, estudiantes, cursos, pagos, comunicados] = await Promise.all([
+      const mIdx = new Date().getMonth()
+      const currentMonth = (mIdx >= 2 && mIdx <= 11) ? MESES_FULL[mIdx - 2] : 'Marzo'
+      
+      const [personal, estudiantes, cursos, pagos, comunicados, estConfig, pagosProv] = await Promise.all([
         supabase.from('personal').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
-        supabase.from('estudiantes').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
+        supabase.from('estudiantes').select('*, cursos(nivel)').eq('estado', 'activo'),
         supabase.from('cursos').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
-        supabase.from('pagos_apoderados').select('estado'),
+        supabase.from('pagos_apoderados').select('estado, monto, mes_periodo, fecha_pago'),
         supabase.from('comunicados').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
+        supabase.from('establecimientos').select('valor_mensualidad').eq('id', perfil.establecimiento_id).single(),
+        supabase.from('pagos_proveedores').select('monto, fecha_pago, estado').eq('estado', 'pagado')
       ])
+
+      const countEst = estudiantes.data?.length ?? 0
+      const valorMens = estConfig.data?.valor_mensualidad ?? 0
+      const proyectadoMensual = countEst * valorMens
+
       const pendientes = pagos.data?.filter(p => p.estado === 'pendiente').length ?? 0
       const vencidos = pagos.data?.filter(p => p.estado === 'vencido').length ?? 0
+      
+      const recMes = pagos.data
+        ?.filter(p => p.estado === 'pagado' && p.mes_periodo?.includes(currentMonth))
+        .reduce((sum, p) => sum + Number(p.monto), 0) ?? 0
+
+      const penMes = pagos.data
+        ?.filter(p => (p.estado === 'pendiente' || p.estado === 'vencido') && p.mes_periodo?.includes(currentMonth))
+        .reduce((sum, p) => sum + Number(p.monto), 0) ?? 0
+
+      const gasMes = pagosProv.data
+        ?.reduce((sum, p) => sum + Number(p.monto), 0) ?? 0 // Current query might need date filtering
+
+      // Aggregating pie data
+      const levels: Record<string, number> = {}
+      estudiantes.data?.forEach(e => {
+        const key = (e.cursos as any)?.nivel || 'Sin asignar'
+        levels[key] = (levels[key] || 0) + 1
+      })
+      const pData = Object.entries(levels).map(([k, v]) => ({ name: levelNames[k] || k, value: v }))
+      setPieData(pData)
+
       setStats({
         personal: personal.count ?? 0,
-        estudiantes: estudiantes.count ?? 0,
+        estudiantes: countEst,
         cursos: cursos.count ?? 0,
         pagosPendientes: pendientes,
         pagosVencidos: vencidos,
         comunicados: comunicados.count ?? 0,
+        valorMensualidad: valorMens,
+        recaudadoMes: recMes,
+        pendienteMes: penMes,
+        gastosMes: gasMes,
+        balanceNeto: recMes - gasMes
       })
+
+      // Procesar datos para el gráfico
+      const data = MESES.map((mes, idx) => {
+          const mesNombre = MESES_FULL[idx]
+          const pagadoEnMes = pagos.data
+              ?.filter(p => p.mes_periodo?.includes(mesNombre) && p.estado === 'pagado')
+              .reduce((sum, p) => sum + Number(p.monto), 0) ?? 0
+
+          return {
+              mes,
+              proyectado: proyectadoMensual,
+              recaudado: pagadoEnMes
+          }
+      })
+      setChartData(data)
       setLoading(false)
     }
     load()
-  }, [])
+  }, [perfil])
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">Resumen general del establecimiento educacional</p>
+        <p className="page-subtitle">Proyección financiera basada en matrícula real</p>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Personal Activo" value={loading ? '—' : stats.personal} icon={Users} color="blue" trend="Funcionarios y docentes" />
-        <StatCard label="Estudiantes" value={loading ? '—' : stats.estudiantes} icon={GraduationCap} color="green" trend="Matriculados activos" />
+        <StatCard label="Matrícula Real" value={loading ? '—' : stats.estudiantes} icon={GraduationCap} color="green" trend={`Arancel: ${fmt(stats.valorMensualidad)}`} />
         <StatCard label="Cursos" value={loading ? '—' : stats.cursos} icon={BookOpen} color="purple" trend="Cursos habilitados" />
         <StatCard label="Pagos Pendientes" value={loading ? '—' : stats.pagosPendientes} icon={CreditCard} color="yellow" trend={`${stats.pagosVencidos} vencidos`} />
       </div>
@@ -94,20 +147,35 @@ export default function DashboardPage() {
         {/* Bar chart */}
         <div className="card lg:col-span-2">
           <div className="card-header">
-            <h3 className="section-title">Recaudación Mensual</h3>
-            <span className="badge-blue">Últimos 6 meses</span>
+            <h3 className="section-title">Recaudación: Proyectado vs Real</h3>
+            <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="w-2 h-2 rounded-full bg-slate-200" /> Proyectado
+                </span>
+                <span className="flex items-center gap-1 text-[10px] font-bold text-brand-500 uppercase tracking-wider">
+                    <div className="w-2 h-2 rounded-full bg-brand-500" /> Recaudado
+                </span>
+            </div>
           </div>
           <div className="card-body">
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={pagosMes} barSize={24}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => fmt(v)} labelStyle={{ fontSize: 12 }} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-                <Bar dataKey="pagado" name="Pagado" fill="#0870f5" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="pendiente" name="Pendiente" fill="#fbbf24" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+                <div className="flex items-center justify-center h-[280px] text-slate-400 text-sm">Cargando proyecciones...</div>
+            ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <Tooltip 
+                    formatter={(v: any) => fmt(v)} 
+                    labelStyle={{ fontSize: 12, fontWeight: 600 }} 
+                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
+                    />
+                    <Bar dataKey="proyectado" name="Proyectado" fill="#f1f5f9" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar dataKey="recaudado" name="Recaudado Real" fill="#0870f5" radius={[4, 4, 0, 0]} barSize={20} style={{ transform: 'translateX(-10px)' }} />
+                </ComposedChart>
+                </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -119,8 +187,8 @@ export default function DashboardPage() {
           <div className="card-body flex flex-col items-center">
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={nivelData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48}>
-                  {nivelData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48}>
+                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
@@ -156,10 +224,10 @@ export default function DashboardPage() {
           </div>
           <div className="card-body space-y-3">
             {[
-              { label: 'Recaudado este mes', val: fmt(3400000), color: 'text-emerald-600' },
-              { label: 'Pendiente de cobro', val: fmt(280000), color: 'text-amber-600' },
-              { label: 'Pagos a proveedores', val: fmt(1200000), color: 'text-slate-600' },
-              { label: 'Balance neto estimado', val: fmt(1920000), color: 'text-brand-600', bold: true },
+              { label: 'Recaudado este mes', val: fmt(stats.recaudadoMes), color: 'text-emerald-600' },
+              { label: 'Pendiente de cobro', val: fmt(stats.pendienteMes), color: 'text-amber-600' },
+              { label: 'Gastos a proveedores', val: fmt(stats.gastosMes), color: 'text-slate-600' },
+              { label: 'Balance neto estimado', val: fmt(stats.balanceNeto), color: 'text-brand-600', bold: true },
             ].map(({ label, val, color, bold }) => (
               <div key={label} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
                 <span className="text-sm text-slate-500">{label}</span>
