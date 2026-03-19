@@ -1,18 +1,19 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/hooks/useAuth'
 import AppLayout from '@/components/layout/AppLayout'
-import LandingPage       from '@/pages/LandingPage'
-import LoginPage         from '@/pages/LoginPage'
-import DashboardPage     from '@/pages/DashboardPage'
-import PersonalPage      from '@/pages/PersonalPage'
-import EstudiantesPage   from '@/pages/EstudiantesPage'
-import CursosPage        from '@/pages/CursosPage'
-import ComunicadosPage   from '@/pages/ComunicadosPage'
-import PadresPage        from '@/pages/PadresPage'
-import PagosPage         from '@/pages/PagosPage'
-import ProveedoresPage   from '@/pages/ProveedoresPage'
+import LandingPage from '@/pages/LandingPage'
+import LoginPage from '@/pages/LoginPage'
+import DashboardPage from '@/pages/DashboardPage'
+import PersonalPage from '@/pages/PersonalPage'
+import EstudiantesPage from '@/pages/EstudiantesPage'
+import CursosPage from '@/pages/CursosPage'
+import ComunicadosPage from '@/pages/ComunicadosPage'
+import PadresPage from '@/pages/PadresPage'
+import PagosPage from '@/pages/PagosPage'
+import ProveedoresPage from '@/pages/ProveedoresPage'
 import ConfiguracionPage from '@/pages/ConfiguracionPage'
-import { Spinner }       from '@/components/ui'
+import { Spinner } from '@/components/ui'
+import AsistenciaPage from './pages/AsistenciaPage'
 
 function LoadingScreen() {
   return (
@@ -48,19 +49,20 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Pública */}
-      <Route path="/"      element={<LandingPage />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
 
       {/* Privadas — mismo prefijo que usa el Sidebar (/dashboard, /cursos, etc.) */}
       <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-        <Route path="/dashboard"     element={<DashboardPage />} />
-        <Route path="/personal"      element={<PersonalPage />} />
-        <Route path="/estudiantes"   element={<EstudiantesPage />} />
-        <Route path="/cursos"        element={<CursosPage />} />
-        <Route path="/comunicados"   element={<ComunicadosPage />} />
-        <Route path="/padres"        element={<PadresPage />} />
-        <Route path="/pagos"         element={<PagosPage />} />
-        <Route path="/proveedores"   element={<ProveedoresPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/personal" element={<PersonalPage />} />
+        <Route path="/estudiantes" element={<EstudiantesPage />} />
+        <Route path="/cursos" element={<CursosPage />} />
+        <Route path="/asistencia" element={<AsistenciaPage />} />
+        <Route path="/comunicados" element={<ComunicadosPage />} />
+        <Route path="/padres" element={<PadresPage />} />
+        <Route path="/pagos" element={<PagosPage />} />
+        <Route path="/proveedores" element={<ProveedoresPage />} />
         <Route path="/configuracion" element={<ConfiguracionPage />} />
       </Route>
 
