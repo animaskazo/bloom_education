@@ -49,6 +49,7 @@ export default function DashboardPage() {
   }, [perfil, navigate])
 
   useEffect(() => {
+    if (!perfil) return
     async function load() {
       const [personal, estudiantes, cursos, pagos, comunicados] = await Promise.all([
         supabase.from('personal').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
@@ -101,10 +102,10 @@ export default function DashboardPage() {
               <BarChart data={pagosMes} barSize={24}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => fmt(v)} labelStyle={{ fontSize: 12 }} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-                <Bar dataKey="pagado" name="Pagado" fill="#0870f5" radius={[6,6,0,0]} />
-                <Bar dataKey="pendiente" name="Pendiente" fill="#fbbf24" radius={[6,6,0,0]} />
+                <Bar dataKey="pagado" name="Pagado" fill="#0870f5" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="pendiente" name="Pendiente" fill="#fbbf24" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -172,12 +173,12 @@ export default function DashboardPage() {
   )
 }
 
-function Alert({ color, msg }: { color: 'red'|'yellow'|'blue'|'green'; msg: string }) {
+function Alert({ color, msg }: { color: 'red' | 'yellow' | 'blue' | 'green'; msg: string }) {
   const styles = {
-    red:    'bg-red-50 text-red-700 border-red-200',
+    red: 'bg-red-50 text-red-700 border-red-200',
     yellow: 'bg-amber-50 text-amber-700 border-amber-200',
-    blue:   'bg-blue-50 text-blue-700 border-blue-200',
-    green:  'bg-emerald-50 text-emerald-700 border-emerald-200',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   }
   return (
     <div className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl border ${styles[color]}`}>

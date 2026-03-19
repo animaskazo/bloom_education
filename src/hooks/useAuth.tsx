@@ -6,8 +6,8 @@ interface AuthCtx {
   user: User | null
   session: Session | null
   perfil: Perfil | null
-  loading: boolean        // true mientras resuelve si hay sesión
-  perfilLoading: boolean  // true mientras carga el perfil de Supabase
+  loading: boolean
+  perfilLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -15,38 +15,14 @@ interface AuthCtx {
 const AuthContext = createContext<AuthCtx | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [perfil, setPerfil] = useState<Perfil | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser]                   = useState<User | null>(null)
+  const [session, setSession]             = useState<Session | null>(null)
+  const [perfil, setPerfil]               = useState<Perfil | null>(null)
+  const [loading, setLoading]             = useState(true)
   const [perfilLoading, setPerfilLoading] = useState(true)
 
-  const fetchControllerRef = useRef<AbortController | null>(null)
-
-  async function fetchPerfil(userId: string) {
-    fetchControllerRef.current?.abort()
-    const controller = new AbortController()
-    fetchControllerRef.current = controller
-
-    setPerfilLoading(true)
-
-    try {
-      const { data, error } = await supabase
-        .from('perfiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-        .abortSignal(controller.signal)
-
-      if (controller.signal.aborted) return
-
-      if (!error && data) setPerfil(data)
-    } catch {
-      // abort o error de red — no bloquea la UI
-    } finally {
-      if (!controller.signal.aborted) setPerfilLoading(false)
-    }
-  }
+  const lastUserIdRef = useRef<string | null>(null)
+  const perfilRef     = useRef<Perfil | null>(null)
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -54,27 +30,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session)
         setUser(session?.user ?? null)
 
-        if (session?.user) {
-          await fetchPerfil(session.user.id)
-        } else {
-          fetchControllerRef.current?.abort()
+        if (!session?.user) {
           setPerfil(null)
+          perfilRef.current = null
+          lastUserIdRef.current = null
+          setLoading(false)
           setPerfilLoading(false)
+          return
+        }
+
+        // Si es el mismo usuario y ya tenemos perfil, no re-fetchear
+        if (lastUserIdRef.current === session.user.id && perfilRef.current !== null) {
+          setLoading(false)
+          setPerfilLoading(false)
+          return
+        }
+
+        lastUserIdRef.current = session.user.id
+        setPerfilLoading(true)
+
+        const { data, error } = await supabase
+          .from('perfiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+
+        if (!error && data) {
+          setPerfil(data)
+          perfilRef.current = data
         }
 
         setLoading(false)
+        setPerfilLoading(false)
       }
     )
 
+    // Timeout de seguridad
     const fallback = setTimeout(() => {
       setLoading(false)
       setPerfilLoading(false)
-    }, 5000)
+    }, 4000)
 
     return () => {
       subscription.unsubscribe()
       clearTimeout(fallback)
-      fetchControllerRef.current?.abort()
     }
   }, [])
 

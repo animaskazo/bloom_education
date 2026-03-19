@@ -7,15 +7,15 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { to: '/',             icon: LayoutDashboard, label: 'Dashboard',               end: true },
-  { to: '/personal',     icon: Users,           label: 'Personal' },
-  { to: '/estudiantes',  icon: GraduationCap,   label: 'Estudiantes' },
-  { to: '/cursos',       icon: BookOpen,        label: 'Cursos' },
-  { to: '/asistencia',   icon: CheckSquare,     label: 'Asistencia' },
-  { to: '/comunicados',  icon: MessageSquare,   label: 'Comunicación Interna' },
-  { to: '/padres',       icon: Bell,            label: 'Gestión de Apoderados' },
-  { to: '/pagos',        icon: CreditCard,      label: 'Pagos Apoderados' },
-  { to: '/proveedores',  icon: Package,         label: 'Pagos Proveedores' },
+  { to: '/app', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { to: '/personal', icon: Users, label: 'Personal' },
+  { to: '/estudiantes', icon: GraduationCap, label: 'Estudiantes' },
+  { to: '/cursos', icon: BookOpen, label: 'Cursos' },
+  { to: '/asistencia', icon: CheckSquare, label: 'Asistencia' },
+  { to: '/comunicados', icon: MessageSquare, label: 'Comunicación Interna' },
+  { to: '/padres', icon: Bell, label: 'Gestión de Apoderados' },
+  { to: '/pagos', icon: CreditCard, label: 'Pagos Apoderados' },
+  { to: '/proveedores', icon: Package, label: 'Pagos Proveedores' },
 ]
 
 const adminItems = [
@@ -24,27 +24,27 @@ const adminItems = [
 
 // ── Permisos por rol ────────────────────────────────────────────────────────
 const ROL_RUTAS: Record<string, string[]> = {
-  super_admin:   ['/', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  direccion:     ['/', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  profesor:      ['/', '/cursos', '/asistencia', '/comunicados', '/padres'],
-  administrativo:['/', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
-  apoderado:     ['/', '/padres', '/pagos'],
+  super_admin: ['/', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  direccion: ['/', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  profesor: ['/', '/cursos', '/asistencia', '/comunicados', '/padres'],
+  administrativo: ['/', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
+  apoderado: ['/', '/padres', '/pagos'],
 }
 
 const ROL_LABELS: Record<string, string> = {
-  super_admin:    'Super Admin',
-  direccion:      'Dirección',
-  profesor:       'Profesor/a',
+  super_admin: 'Super Admin',
+  direccion: 'Dirección',
+  profesor: 'Profesor/a',
   administrativo: 'Administrativo/a',
-  apoderado:      'Apoderado/a',
+  apoderado: 'Apoderado/a',
 }
 
 const ROL_COLORS: Record<string, string> = {
-  super_admin:    'bg-red-50 text-red-700',
-  direccion:      'bg-blue-50 text-blue-700',
-  profesor:       'bg-green-50 text-green-700',
+  super_admin: 'bg-red-50 text-red-700',
+  direccion: 'bg-blue-50 text-blue-700',
+  profesor: 'bg-green-50 text-green-700',
   administrativo: 'bg-purple-50 text-purple-700',
-  apoderado:      'bg-amber-50 text-amber-700',
+  apoderado: 'bg-amber-50 text-amber-700',
 }
 
 interface SidebarProps { collapsed: boolean; onToggle: () => void }
@@ -60,7 +60,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // Mientras el perfil no ha cargado, no filtramos — esperamos
   const rutasPermitidas = perfil ? (ROL_RUTAS[perfil.rol] ?? []) : null
-  const itemsFiltrados  = rutasPermitidas
+  const itemsFiltrados = rutasPermitidas
     ? navItems.filter(item => rutasPermitidas.includes(item.to))
     : navItems // fallback: mostrar todo si perfil aún no llegó
 
