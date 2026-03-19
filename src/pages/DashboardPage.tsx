@@ -36,7 +36,7 @@ function fmt(n: number) {
 export default function DashboardPage() {
   const { perfil } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState<Stats>({ 
+  const [stats, setStats] = useState<Stats>({
     personal: 0, estudiantes: 0, cursos: 0, pagosPendientes: 0, pagosVencidos: 0, comunicados: 0, valorMensualidad: 0,
     recaudadoMes: 0, pendienteMes: 0, gastosMes: 0, balanceNeto: 0
   })
@@ -55,10 +55,10 @@ export default function DashboardPage() {
     async function load() {
       const mIdx = new Date().getMonth()
       const currentMonth = (mIdx >= 2 && mIdx <= 11) ? MESES_FULL[mIdx - 2] : 'Marzo'
-      
+
       const [personal, estudiantes, cursos, pagos, comunicados, estConfig, pagosProv] = await Promise.all([
         supabase.from('personal').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
-        supabase.from('estudiantes').select('*, cursos(nivel)').eq('estado', 'activo'),
+        supabase.from('estudiantes').select('*, cursos(nivel, nombre)').eq('estado', 'activo'),
         supabase.from('cursos').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
         supabase.from('pagos_apoderados').select('estado, monto, mes_periodo, fecha_pago'),
         supabase.from('comunicados').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
@@ -72,7 +72,7 @@ export default function DashboardPage() {
 
       const pendientes = pagos.data?.filter(p => p.estado === 'pendiente').length ?? 0
       const vencidos = pagos.data?.filter(p => p.estado === 'vencido').length ?? 0
-      
+
       const recMes = pagos.data
         ?.filter(p => p.estado === 'pagado' && p.mes_periodo?.includes(currentMonth))
         .reduce((sum, p) => sum + Number(p.monto), 0) ?? 0
@@ -84,13 +84,16 @@ export default function DashboardPage() {
       const gasMes = pagosProv.data
         ?.reduce((sum, p) => sum + Number(p.monto), 0) ?? 0 // Current query might need date filtering
 
-      // Aggregating pie data
-      const levels: Record<string, number> = {}
+      // Aggregating pie data for Pre-básica courses
+      const courses: Record<string, number> = {}
       estudiantes.data?.forEach(e => {
-        const key = (e.cursos as any)?.nivel || 'Sin asignar'
-        levels[key] = (levels[key] || 0) + 1
+        const c = (e.cursos as any)
+        if (c?.nivel === 'pre_basica') {
+          const key = c.nombre
+          courses[key] = (courses[key] || 0) + 1
+        }
       })
-      const pData = Object.entries(levels).map(([k, v]) => ({ name: levelNames[k] || k, value: v }))
+      const pData = Object.entries(courses).map(([k, v]) => ({ name: k, value: v }))
       setPieData(pData)
 
       setStats({
@@ -109,16 +112,16 @@ export default function DashboardPage() {
 
       // Procesar datos para el gráfico
       const data = MESES.map((mes, idx) => {
-          const mesNombre = MESES_FULL[idx]
-          const pagadoEnMes = pagos.data
-              ?.filter(p => p.mes_periodo?.includes(mesNombre) && p.estado === 'pagado')
-              .reduce((sum, p) => sum + Number(p.monto), 0) ?? 0
+        const mesNombre = MESES_FULL[idx]
+        const pagadoEnMes = pagos.data
+          ?.filter(p => p.mes_periodo?.includes(mesNombre) && p.estado === 'pagado')
+          .reduce((sum, p) => sum + Number(p.monto), 0) ?? 0
 
-          return {
-              mes,
-              proyectado: proyectadoMensual,
-              recaudado: pagadoEnMes
-          }
+        return {
+          mes,
+          proyectado: proyectadoMensual,
+          recaudado: pagadoEnMes
+        }
       })
       setChartData(data)
       setLoading(false)
@@ -149,51 +152,55 @@ export default function DashboardPage() {
           <div className="card-header">
             <h3 className="section-title">Recaudación: Proyectado vs Real</h3>
             <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    <div className="w-2 h-2 rounded-full bg-slate-200" /> Proyectado
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-bold text-brand-500 uppercase tracking-wider">
-                    <div className="w-2 h-2 rounded-full bg-brand-500" /> Recaudado
-                </span>
+              <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="w-2 h-2 rounded-full bg-slate-200" /> Proyectado
+              </span>
+              <span className="flex items-center gap-1 text-[10px] font-bold text-brand-500 uppercase tracking-wider">
+                <div className="w-2 h-2 rounded-full bg-brand-500" /> Recaudado
+              </span>
             </div>
           </div>
-          <div className="card-body">
+          <div className="card-body py-10 min-h-[420px]">
             {loading ? (
-                <div className="flex items-center justify-center h-[280px] text-slate-400 text-sm">Cargando proyecciones...</div>
+              <div className="flex items-center justify-center h-[360px] text-slate-400 text-sm">Cargando proyecciones...</div>
             ) : (
-                <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <Tooltip 
-                    formatter={(v: any) => fmt(v)} 
-                    labelStyle={{ fontSize: 12, fontWeight: 600 }} 
-                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
-                    />
-                    <Bar dataKey="proyectado" name="Proyectado" fill="#f1f5f9" radius={[4, 4, 0, 0]} barSize={40} />
-                    <Bar dataKey="recaudado" name="Recaudado Real" fill="#0870f5" radius={[4, 4, 0, 0]} barSize={20} style={{ transform: 'translateX(-10px)' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    formatter={(v: any) => fmt(v)}
+                    labelStyle={{ fontSize: 12, fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                  />
+                  <Bar dataKey="proyectado" name="Proyectado" fill="#f1f5f9" radius={[4, 4, 0, 0]} barSize={40} />
+                  <Bar dataKey="recaudado" name="Recaudado Real" fill="#0870f5" radius={[4, 4, 0, 0]} barSize={20} style={{ transform: 'translateX(-10px)' }} />
                 </ComposedChart>
-                </ResponsiveContainer>
+              </ResponsiveContainer>
             )}
           </div>
         </div>
 
-        {/* Pie chart */}
         <div className="card">
           <div className="card-header">
-            <h3 className="section-title">Alumnos por Nivel</h3>
+            <h3 className="section-title">Alumnos por Curso</h3>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pre-básica</span>
           </div>
-          <div className="card-body flex flex-col items-center">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={48}>
-                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="card-body flex flex-col items-center justify-center py-10 min-h-[420px]">
+            {pieData.length === 0 ? (
+              <div className="flex items-center justify-center h-[200px] text-slate-400 text-sm">Sin datos de Pre-básica</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={380}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} innerRadius={80} paddingAngle={2}>
+                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                  <Legend verticalAlign="bottom" height={42} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 20 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

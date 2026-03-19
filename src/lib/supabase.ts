@@ -80,10 +80,20 @@ export interface Estudiante {
   apellido: string
   fecha_nacimiento?: string
   genero?: string
+  nacionalidad?: string
   direccion?: string
   curso_id?: string
   estado: EstadoGeneral
   foto_url?: string
+  // Información Médica
+  grupo_sangre?: string
+  alergias?: string
+  enfermedades_cronicas?: string
+  medicamentos?: string
+  prevision_salud?: string
+  // Emergencia
+  contacto_emergencia_nombre?: string
+  contacto_emergencia_telefono?: string
   establecimiento_id: string
   created_at: string
   updated_at: string
