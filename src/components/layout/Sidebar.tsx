@@ -24,11 +24,11 @@ const adminItems = [
 
 // ── Permisos por rol ────────────────────────────────────────────────────────
 const ROL_RUTAS: Record<string, string[]> = {
-  super_admin: ['/', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  direccion: ['/', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  profesor: ['/', '/cursos', '/asistencia', '/comunicados', '/padres'],
-  administrativo: ['/', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
-  apoderado: ['/', '/padres', '/pagos'],
+  super_admin: ['/app', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  direccion: ['/app', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  profesor: ['/app', '/cursos', '/asistencia', '/comunicados', '/padres'],
+  administrativo: ['/app', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
+  apoderado: ['/app', '/padres', '/pagos'],
 }
 
 const ROL_LABELS: Record<string, string> = {
