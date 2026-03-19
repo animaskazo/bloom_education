@@ -3,21 +3,21 @@ import { useAuth } from '@/hooks/useAuth'
 import { useLocation } from 'react-router-dom'
 
 const pageNames: Record<string, string> = {
-  '/app':                  'Dashboard',
-  '/app/personal':         'Gestión de Personal',
-  '/app/estudiantes':      'Gestión de Estudiantes',
-  '/app/cursos':           'Gestión de Cursos',
-  '/app/comunicados':      'Comunicación Interna',
-  '/app/padres':           'Comunicación con Padres',
-  '/app/pagos':            'Pagos y Cobranza Apoderados',
-  '/app/proveedores':      'Pagos a Proveedores',
-  '/app/configuracion':    'Configuración',
+  '/':              'Dashboard',
+  '/personal':      'Gestión de Personal',
+  '/estudiantes':   'Gestión de Estudiantes',
+  '/cursos':        'Gestión de Cursos',
+  '/comunicados':   'Comunicación Interna',
+  '/padres':        'Comunicación con Padres',
+  '/pagos':         'Pagos y Cobranza Apoderados',
+  '/proveedores':   'Pagos a Proveedores',
+  '/configuracion': 'Configuración',
 }
 
 export default function Topbar() {
   const { perfil } = useAuth()
   const location = useLocation()
-  const pageTitle = pageNames[location.pathname] ?? 'EduTrack'
+  const pageTitle = pageNames[location.pathname] ?? 'Bloom'
   const initials = perfil
     ? `${perfil.nombre[0]}${perfil.apellido[0]}`.toUpperCase()
     : 'U'

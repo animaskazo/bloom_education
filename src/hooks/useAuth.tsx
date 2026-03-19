@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, Perfil } from '@/lib/supabase'
 
@@ -14,62 +14,70 @@ interface AuthCtx {
 const AuthContext = createContext<AuthCtx | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser]       = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [perfil, setPerfil] = useState<Perfil | null>(null)
+  const [perfil, setPerfil]   = useState<Perfil | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Evita que fetchPerfil de un evento anterior pise al de uno más reciente
+  const fetchControllerRef = useRef<AbortController | null>(null)
+
   async function fetchPerfil(userId: string) {
+    // Cancela cualquier fetch previo en vuelo
+    fetchControllerRef.current?.abort()
+    const controller = new AbortController()
+    fetchControllerRef.current = controller
+
     try {
       const { data, error } = await supabase
-        .from('personal')
+        .from('perfiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle()
-      
-      if (error) {
-        console.error('❌ Supabase Error fetching perfil:', error.message, error.details, error.hint)
-      } else {
-        console.log('✅ Perfil fetch success:', data)
-      }
-      setPerfil(data)
-    } catch (err) {
-      console.error('Unexpected error fetching perfil:', err)
+        .single()
+        .abortSignal(controller.signal)
+
+      // Si fue abortado, ignorar
+      if (controller.signal.aborted) return
+
+      if (!error) setPerfil(data)
+    } catch {
+      // Ignorar errores de abort o red — no bloquean la UI
     }
   }
 
   useEffect(() => {
-    // 1. Verificar sesión inicial
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
+    // ✅ SOLO onAuthStateChange — no getSession() por separado.
+    // onAuthStateChange dispara INITIAL_SESSION al montar,
+    // que equivale exactamente a getSession() pero sin race condition.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
+
         if (session?.user) {
-          await fetchPerfil(session.user.id)
+          // No esperamos fetchPerfil para quitar el spinner —
+          // loading se levanta con el usuario ya resuelto.
+          fetchPerfil(session.user.id)
+        } else {
+          fetchControllerRef.current?.abort()
+          setPerfil(null)
         }
-      } catch (err) {
-        console.error('Init Auth Error:', err)
-      } finally {
-        setLoading(false) // Siempre desactivamos el cargando al final
+
+        // loading se resuelve en cuanto sabemos si hay sesión o no,
+        // sin depender de que fetchPerfil termine.
+        setLoading(false)
       }
+    )
+
+    // Fallback de seguridad: si onAuthStateChange nunca dispara
+    // (timeout de red, etc.), salimos del spinner a los 5 segundos.
+    const fallback = setTimeout(() => setLoading(false), 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(fallback)
+      fetchControllerRef.current?.abort()
     }
-
-    initAuth()
-
-    // 2. Escuchar cambios de estado
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession)
-      setUser(newSession?.user ?? null)
-      if (newSession?.user) {
-        await fetchPerfil(newSession.user.id)
-      } else {
-        setPerfil(null)
-      }
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
   }, [])
 
   async function signIn(email: string, password: string) {
@@ -80,9 +88,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut()
-    setPerfil(null)
-    setUser(null)
-    setSession(null)
   }
 
   return (
