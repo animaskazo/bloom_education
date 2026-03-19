@@ -71,7 +71,8 @@ export default function PersonalPage() {
           p_nombre: form.nombre,
           p_apellido: form.apellido,
           p_email: form.email || `${form.rut.replace(/[^0-9kK]/g, '')}@bloom-staff.cl`,
-          p_rol: form.cargo.toLowerCase().includes('profesor') ? 'profesor' : 'administrativo',
+          p_rol: form.cargo.toLowerCase().includes('director') ? 'direccion' : 
+                 form.cargo.toLowerCase().includes('profesor') ? 'profesor' : 'administrativo',
           p_establecimiento_id: perfil.establecimiento_id
         })
         if (authErr) throw authErr

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { to: '/app', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/personal', icon: Users, label: 'Personal' },
   { to: '/estudiantes', icon: GraduationCap, label: 'Estudiantes' },
   { to: '/cursos', icon: BookOpen, label: 'Cursos' },
@@ -24,11 +24,11 @@ const adminItems = [
 
 // ── Permisos por rol ────────────────────────────────────────────────────────
 const ROL_RUTAS: Record<string, string[]> = {
-  super_admin: ['/app', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  direccion: ['/app', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  profesor: ['/app', '/cursos', '/asistencia', '/comunicados', '/padres'],
-  administrativo: ['/app', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
-  apoderado: ['/app', '/padres', '/pagos'],
+  super_admin: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  direccion: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  profesor: ['/dashboard', '/cursos', '/asistencia', '/comunicados', '/padres'],
+  administrativo: ['/dashboard', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
+  apoderado: ['/dashboard', '/padres', '/pagos'],
 }
 
 const ROL_LABELS: Record<string, string> = {
