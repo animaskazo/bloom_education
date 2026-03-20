@@ -23,7 +23,7 @@ export default {
       },
       colors: {
         brand: {
-          50:  '#f0f7ff',
+          50: '#f0f7ff',
           100: '#e0efff',
           200: '#b9dcff',
           300: '#7bbeff',
@@ -36,7 +36,7 @@ export default {
           950: '#001d4e',
         },
         slate: {
-          50:  '#f8fafc',
+          50: '#f8fafc',
           100: '#f1f5f9',
           200: '#e2e8f0',
           300: '#cbd5e1',
@@ -50,7 +50,7 @@ export default {
         },
         success: '#16a34a',
         warning: '#d97706',
-        danger:  '#dc2626',
+        danger: '#dc2626',
       },
       borderRadius: {
         xl2: '1rem',

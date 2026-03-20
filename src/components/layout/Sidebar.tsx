@@ -70,13 +70,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-100">
-        <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center flex-shrink-0">
-          <GraduationCap className="w-5 h-5 text-white" />
-        </div>
+
         {!collapsed && (
           <div className="animate-slide-in overflow-hidden">
-            <p className="font-display font-semibold text-slate-900 leading-none">Bloom</p>
-            <p className="text-[10px] text-slate-400 mt-0.5 leading-none">Gestión Educacional</p>
+            <img src="src/img/logo.png" alt="Logo" width={160} />
           </div>
         )}
         <button

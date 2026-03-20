@@ -416,7 +416,6 @@ export default function LandingPage() {
         {/* ── NAV ── */}
         <nav className="lp-nav" id="lp-nav">
           <button className="lp-nav-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <span className="lp-nav-logo-icon">🌸</span>
             Bloom Education
           </button>
           <div className="lp-nav-links">
@@ -438,11 +437,6 @@ export default function LandingPage() {
           <div className="lp-orb lp-orb-c" />
           <div className="lp-petals" ref={petalsRef} />
 
-          <div className="lp-hero-tag">
-            <span className="lp-tag-dot" />
-            Plataforma para jardines infantiles · Chile
-          </div>
-
           <h1 className="lp-hero-h1">
             El jardín florece<br />
             <span className="lp-grad">cuando tú descansas.</span>
@@ -453,14 +447,10 @@ export default function LandingPage() {
           </p>
 
           <div className="lp-hero-actions">
-            <button className="lp-btn-primary" onClick={() => navigate('/login')}>
-              Comenzar gratis
+            <button className="lp-btn-primary" style={{ backgroundColor: 'var(--lp-ink)', boxShadow: 'none' }} onClick={() => navigate('/login')}>
+              Prueba la demo
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <a href="#lp-dashboard" className="lp-btn-secondary">
-              Ver cómo funciona
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3l5 5-5 5M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </a>
           </div>
 
           <div className="lp-hero-proof">
@@ -580,9 +570,9 @@ export default function LandingPage() {
               <div className="lp-cobro-rows">
                 {[
                   { av: 'FL', avBg: 'linear-gradient(135deg,#ff375f,#8b5cf6)', name: 'Francisco López', child: 'Sofía · Pre-kínder A', badge: 'paid' },
-                  { av: 'RT', avBg: 'linear-gradient(135deg,#f59e0b,#f97316)',  name: 'Rosa Torres',     child: 'Mateo · Kínder A',     badge: 'pend' },
-                  { av: 'MR', avBg: 'linear-gradient(135deg,#ff375f,#ff6b6b)', name: 'Marco Reyes',     child: 'Valentina · 1° A',     badge: 'due'  },
-                  { av: 'EH', avBg: 'linear-gradient(135deg,#1db954,#0d9488)', name: 'Elena Herrera',   child: 'Benjamín · 1° A',      badge: 'paid' },
+                  { av: 'RT', avBg: 'linear-gradient(135deg,#f59e0b,#f97316)', name: 'Rosa Torres', child: 'Mateo · Kínder A', badge: 'pend' },
+                  { av: 'MR', avBg: 'linear-gradient(135deg,#ff375f,#ff6b6b)', name: 'Marco Reyes', child: 'Valentina · 1° A', badge: 'due' },
+                  { av: 'EH', avBg: 'linear-gradient(135deg,#1db954,#0d9488)', name: 'Elena Herrera', child: 'Benjamín · 1° A', badge: 'paid' },
                 ].map(({ av, avBg, name, child, badge }) => (
                   <div className="lp-crow" key={name}>
                     <div className="lp-cav" style={{ background: avBg }}>{av}</div>
@@ -667,11 +657,11 @@ export default function LandingPage() {
           <div className="lp-tgrid">
             {[
               { av: 'CM', avBg: 'linear-gradient(135deg,#ff375f,#8b5cf6)', quote: '"Antes pasaba horas en planillas de Excel. Ahora en cinco minutos tengo el cobro del mes listo."', name: 'Carmen Molina', role: 'Directora · Jardín Las Estrellas, Santiago', delay: '' },
-              { av: 'PV', avBg: 'linear-gradient(135deg,#1db954,#0d9488)',  quote: '"Los apoderados responden los comunicados al instante. Sé quién lo leyó y a qué hora. Es otra dimensión."', name: 'Patricia Vera',  role: 'Educadora · Jardín San Mateo, Valparaíso', delay: 'lp-d1' },
-              { av: 'AR', avBg: 'linear-gradient(135deg,#0071e3,#8b5cf6)', quote: '"Me costó media tarde aprenderla. Desde entonces no podría imaginar mi jardín sin Bloom Education."', name: 'Ana Rojas',      role: 'Directora · Jardín Arco Iris, Concepción', delay: 'lp-d2' },
+              { av: 'PV', avBg: 'linear-gradient(135deg,#1db954,#0d9488)', quote: '"Los apoderados responden los comunicados al instante. Sé quién lo leyó y a qué hora. Es otra dimensión."', name: 'Patricia Vera', role: 'Educadora · Jardín San Mateo, Valparaíso', delay: 'lp-d1' },
+              { av: 'AR', avBg: 'linear-gradient(135deg,#0071e3,#8b5cf6)', quote: '"Me costó media tarde aprenderla. Desde entonces no podría imaginar mi jardín sin Bloom Education."', name: 'Ana Rojas', role: 'Directora · Jardín Arco Iris, Concepción', delay: 'lp-d2' },
             ].map(({ av, avBg, quote, name, role, delay }) => (
               <div className={`lp-tcard lp-reveal ${delay}`} key={name}>
-                <div className="lp-tstars">{[1,2,3,4,5].map(i => <span key={i} className="lp-tstar">★</span>)}</div>
+                <div className="lp-tstars">{[1, 2, 3, 4, 5].map(i => <span key={i} className="lp-tstar">★</span>)}</div>
                 <div className="lp-tquote">{quote}</div>
                 <div className="lp-tauthor">
                   <div className="lp-tav" style={{ background: avBg }}>{av}</div>

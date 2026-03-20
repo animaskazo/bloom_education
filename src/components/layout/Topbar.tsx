@@ -3,15 +3,15 @@ import { useAuth } from '@/hooks/useAuth'
 import { useLocation } from 'react-router-dom'
 
 const pageNames: Record<string, string> = {
-  '/app':                  'Dashboard',
-  '/app/personal':         'Gestión de Personal',
-  '/app/estudiantes':      'Gestión de Estudiantes',
-  '/app/cursos':           'Gestión de Cursos',
-  '/app/comunicados':      'Comunicación Interna',
-  '/app/padres':           'Comunicación con Padres',
-  '/app/pagos':            'Pagos y Cobranza Apoderados',
-  '/app/proveedores':      'Pagos a Proveedores',
-  '/app/configuracion':    'Configuración',
+  '/app': 'Dashboard',
+  '/app/personal': 'Gestión de Personal',
+  '/app/estudiantes': 'Gestión de Estudiantes',
+  '/app/cursos': 'Gestión de Cursos',
+  '/app/comunicados': 'Comunicación Interna',
+  '/app/padres': 'Comunicación con Padres',
+  '/app/pagos': 'Pagos y Cobranza Apoderados',
+  '/app/proveedores': 'Pagos a Proveedores',
+  '/app/configuracion': 'Configuración',
 }
 
 export default function Topbar() {
@@ -24,7 +24,7 @@ export default function Topbar() {
 
   return (
     <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 gap-4 flex-shrink-0 shadow-nav">
-      <h2 className="font-semibold text-slate-800 text-base">{pageTitle}</h2>
+      <h2 className="font-semibold text-slate-800 text-base">Hola {perfil.nombre} {perfil.apellido}</h2>
 
       <div className="ml-auto flex items-center gap-2">
         {/* Search */}
