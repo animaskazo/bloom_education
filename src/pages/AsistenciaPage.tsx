@@ -7,7 +7,7 @@ import { format, addDays, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export default function AsistenciaPage() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId } = useAuth()
   const [cursos, setCursos] = useState<Curso[]>([])
   const [cursoId, setCursoId] = useState<string>('')
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
@@ -19,16 +19,19 @@ export default function AsistenciaPage() {
 
   useEffect(() => {
     async function init() {
-      if (!perfil?.establecimiento_id) return
-      const { data } = await supabase.from('cursos').select('*').eq('estado', 'activo').order('nombre')
+      if (!selectedEstablecimientoId) return
+      const { data } = await supabase.from('cursos').select('*').eq('estado', 'activo').eq('establecimiento_id', selectedEstablecimientoId).order('nombre')
       if (data && data.length > 0) {
         setCursos(data)
         setCursoId(data[0].id)
+      } else {
+        setCursos([])
+        setCursoId('')
       }
       setLoading(false)
     }
     init()
-  }, [perfil])
+  }, [selectedEstablecimientoId])
 
   useEffect(() => {
     if (cursoId && fecha) loadDay()
@@ -52,14 +55,14 @@ export default function AsistenciaPage() {
   }
 
   async function saveAll() {
-    if (!perfil?.establecimiento_id) return
+    if (!selectedEstablecimientoId) return
     setSaving(true)
     setMessage(null)
 
     const payload = estudiantes.map(e => ({
       estudiante_id: e.id,
       curso_id: cursoId,
-      establecimiento_id: perfil.establecimiento_id,
+      establecimiento_id: selectedEstablecimientoId,
       fecha: fecha,
       estado: asistencias[e.id] || 'presente'
     }))

@@ -11,7 +11,7 @@ const emptyForm = { nombre:'', nivel:'basica' as NivelCurso, año: new Date().ge
 type CursoConCount = Curso & { count?: number }
 
 export default function CursosPage() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId } = useAuth()
   const [rows, setRows]       = useState<CursoConCount[]>([])
   const [personal, setPersonal] = useState<Personal[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,7 +25,7 @@ export default function CursosPage() {
   const [success, setSuccess] = useState('')
 
   async function generarNivelesJardin() {
-    if (!perfil?.establecimiento_id) return
+    if (!selectedEstablecimientoId) return
     if (!confirm('¿Deseas generar automáticamente los 6 niveles de Jardín Infantil con 10 alumnos de prueba en cada uno?')) return
 
     setSeeding(true)
@@ -50,7 +50,7 @@ export default function CursosPage() {
           año: new Date().getFullYear(),
           capacidad_max: 20,
           estado: 'activo',
-          establecimiento_id: perfil.establecimiento_id
+          establecimiento_id: selectedEstablecimientoId
         }).select().single()
 
         if (cErr) throw new Error(`Error en curso ${n.nombre}: ${cErr.message}`)
@@ -75,7 +75,7 @@ export default function CursosPage() {
             nacionalidad: 'Chilena',
             curso_id: curso.id,
             estado: 'activo',
-            establecimiento_id: perfil.establecimiento_id
+            establecimiento_id: selectedEstablecimientoId
           }
         })
 
@@ -92,11 +92,12 @@ export default function CursosPage() {
   }
 
   async function load() {
+    if (!selectedEstablecimientoId) return
     setLoading(true)
     const [{ data: cursos }, { data: prof }, { data: est }] = await Promise.all([
-      supabase.from('cursos').select('*, personal(nombre, apellido)').order('nivel').order('nombre'),
-      supabase.from('personal').select('*').eq('estado','activo').order('apellido'),
-      supabase.from('estudiantes').select('id, curso_id').eq('estado','activo'),
+      supabase.from('cursos').select('*, personal(nombre, apellido)').eq('establecimiento_id', selectedEstablecimientoId).order('nivel').order('nombre'),
+      supabase.from('personal').select('*').eq('estado','activo').eq('establecimiento_id', selectedEstablecimientoId).order('apellido'),
+      supabase.from('estudiantes').select('id, curso_id').eq('estado','activo').eq('establecimiento_id', selectedEstablecimientoId),
     ])
     const counts: Record<string,number> = {}
     est?.forEach((e: any) => { if (e.curso_id) counts[e.curso_id] = (counts[e.curso_id]??0)+1 })
@@ -104,7 +105,7 @@ export default function CursosPage() {
     setPersonal(prof??[])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [selectedEstablecimientoId])
 
   function openAdd() { setForm({...emptyForm}); setEditing(null); setError(''); setModal('add') }
   function openEdit(r: any) {
@@ -128,7 +129,7 @@ export default function CursosPage() {
       capacidad_max: parseInt(form.capacidad_max) || 45, 
       sala: form.sala || null, 
       estado: form.estado,
-      establecimiento_id: perfil.establecimiento_id
+      establecimiento_id: selectedEstablecimientoId
     }
 
     const { error: e } = editing

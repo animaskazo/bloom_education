@@ -8,6 +8,8 @@ interface AuthCtx {
   perfil: Perfil | null
   loading: boolean
   perfilLoading: boolean
+  selectedEstablecimientoId: string | null
+  setSelectedEstablecimientoId: (id: string | null) => void
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -20,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [perfil, setPerfil]               = useState<Perfil | null>(null)
   const [loading, setLoading]             = useState(true)
   const [perfilLoading, setPerfilLoading] = useState(true)
+  const [selectedEstablecimientoId, setSelectedEstablecimientoId] = useState<string | null>(null)
 
   const lastUserIdRef = useRef<string | null>(null)
   const perfilRef     = useRef<Perfil | null>(null)
@@ -32,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!session?.user) {
           setPerfil(null)
+          setSelectedEstablecimientoId(null)
           perfilRef.current = null
           lastUserIdRef.current = null
           setLoading(false)
@@ -58,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!error && data) {
           setPerfil(data)
           perfilRef.current = data
+          setSelectedEstablecimientoId(data.establecimiento_id)
         }
 
         setLoading(false)
@@ -88,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, perfil, loading, perfilLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, perfil, loading, perfilLoading, selectedEstablecimientoId, setSelectedEstablecimientoId, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

@@ -15,6 +15,8 @@ import ConfiguracionPage from '@/pages/ConfiguracionPage'
 import { Spinner } from '@/components/ui'
 import AsistenciaPage from './pages/AsistenciaPage'
 
+import EstablecimientosPage from '@/pages/EstablecimientosPage'
+
 function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -64,6 +66,7 @@ function AppRoutes() {
         <Route path="/pagos" element={<PagosPage />} />
         <Route path="/proveedores" element={<ProveedoresPage />} />
         <Route path="/configuracion" element={<ConfiguracionPage />} />
+        <Route path="/establecimientos" element={<EstablecimientosPage />} />
       </Route>
 
       {/* Cualquier ruta desconocida */}

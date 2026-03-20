@@ -8,10 +8,10 @@ const CARGOS = ['Directora/or','Subdirector/a','Profesor/a','Inspector/a General
 const DPTOS  = ['Dirección','Académico','Convivencia','Administración','Servicios Generales']
 const CONTRATOS = ['planta','contrata','honorarios','reemplazo']
 
-const emptyForm = { rut:'', nombre:'', apellido:'', email:'', telefono:'', cargo:'', departamento:'', fecha_ingreso:'', tipo_contrato:'contrata' as string, sueldo_base:'', estado:'activo' as EstadoGeneral, password:'' }
+const emptyForm = { rut:'', nombre:'', apellido:'', email:'', telefono:'', cargo:'', departamento:'', fecha_ingreso:'', tipo_contrato:'contrata' as string, sueldo_base:'', estado:'activo' as EstadoGeneral, password:'', rol: '' }
 
 export default function PersonalPage() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId } = useAuth()
   const [rows, setRows]       = useState<Personal[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch]   = useState('')
@@ -21,28 +21,37 @@ export default function PersonalPage() {
   const [form, setForm]       = useState({ ...emptyForm })
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
+  const [success, setSuccess] = useState('')
   const [hasAuth, setHasAuth] = useState<Record<string, boolean>>({})
 
-  async function load() {
-    setLoading(true)
-    const { data } = await supabase.from('personal').select('*').order('apellido')
+  async function load(silent = false) {
+    if (!selectedEstablecimientoId) return
+    if (!silent) setLoading(true)
+    const { data } = await supabase.from('personal').select('*, perfiles(rol)').eq('establecimiento_id', selectedEstablecimientoId).order('apellido')
     setRows(data ?? [])
     
     // Ahora sabemos si tiene acceso simplemente si el ID coincide con la estructura de Auth
     // O si ya tenemos su email registrado en esta misma tabla.
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [selectedEstablecimientoId])
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [success])
 
   function openAdd()  { setForm({ ...emptyForm }); setEditing(null); setError(''); setModal('add') }
   function openEdit(r: any) {
-    setForm({ rut: r.rut, nombre: r.nombre, apellido: r.apellido, email: r.email??'', telefono: r.telefono??'', cargo: r.cargo, departamento: r.departamento??'', fecha_ingreso: r.fecha_ingreso??'', tipo_contrato: r.tipo_contrato??'contrata', sueldo_base: r.sueldo_base?.toString()??'', estado: r.estado, password: '' })
+    setForm({ rut: r.rut, nombre: r.nombre, apellido: r.apellido, email: r.email??'', telefono: r.telefono??'', cargo: r.cargo, departamento: r.departamento??'', fecha_ingreso: r.fecha_ingreso??'', tipo_contrato: r.tipo_contrato??'contrata', sueldo_base: r.sueldo_base?.toString()??'', estado: r.estado, password: '', rol: r.perfiles?.rol || '' })
     setEditing(r); setError(''); setModal('edit')
   }
 
   async function save() {
-    if (!perfil?.establecimiento_id) {
-      setError('No tienes un establecimiento asignado.')
+    if (!selectedEstablecimientoId) {
+      setError('No hay un establecimiento seleccionado.')
       return
     }
 
@@ -60,7 +69,7 @@ export default function PersonalPage() {
         tipo_contrato: (form.tipo_contrato as any)||null, 
         sueldo_base: form.sueldo_base ? parseFloat(form.sueldo_base) : null, 
         estado: form.estado,
-        establecimiento_id: perfil.establecimiento_id
+        establecimiento_id: selectedEstablecimientoId
       }
 
       // Si tiene clave -> Delegamos TODO a la función maestra SQL (RPC)
@@ -71,9 +80,10 @@ export default function PersonalPage() {
           p_nombre: form.nombre,
           p_apellido: form.apellido,
           p_email: form.email || `${form.rut.replace(/[^0-9kK]/g, '')}@bloom-staff.cl`,
-          p_rol: form.cargo.toLowerCase().includes('director') ? 'direccion' : 
-                 form.cargo.toLowerCase().includes('profesor') ? 'profesor' : 'administrativo',
-          p_establecimiento_id: perfil.establecimiento_id
+          p_rol: (perfil?.rol === 'super_admin' && form.rol) ? form.rol : 
+                 (form.cargo.toLowerCase().includes('director') ? 'direccion' : 
+                  form.cargo.toLowerCase().includes('profesor') ? 'profesor' : 'administrativo'),
+          p_establecimiento_id: selectedEstablecimientoId
         })
         if (authErr) throw authErr
       } 
@@ -86,7 +96,8 @@ export default function PersonalPage() {
       }
 
       setModal(null)
-      await load()
+      setSuccess(editing ? 'Personal actualizado correctamente' : 'Personal creado correctamente')
+      await load(true)
     } catch (e: any) {
       if (e.code === '23505') setError('Este RUT ya se encuentra registrado.')
       else setError(e.message)
@@ -98,7 +109,8 @@ export default function PersonalPage() {
   async function del() {
     if (!delId) return
     await supabase.from('personal').delete().eq('id', delId)
-    setDelId(null); load()
+    setSuccess('Funcionario eliminado correctamente')
+    setDelId(null); load(true)
   }
 
   const filtered = rows.filter(r => `${r.nombre} ${r.apellido} ${r.rut} ${r.cargo}`.toLowerCase().includes(search.toLowerCase()))
@@ -191,6 +203,24 @@ export default function PersonalPage() {
           <F label="Sueldo Base ($)" value={form.sueldo_base} onChange={v=>setForm({...form,sueldo_base:v})} type="number" placeholder="1500000" />
           <F label="Estado" value={form.estado} onChange={v=>setForm({...form,estado:v as EstadoGeneral})} select options={['activo','inactivo','suspendido']} />
           
+          {perfil?.rol === 'super_admin' && (
+            <div className="col-span-2 bg-brand-50/50 p-4 rounded-2xl border border-brand-100 mt-2">
+              <h4 className="text-[10px] font-bold text-brand-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <ShieldAlert className="w-3.5 h-3.5"/> Control de Roles (Super Admin)
+              </h4>
+              <F 
+                label="Rol de Usuario en Bloom" 
+                value={form.rol} 
+                onChange={v=>setForm({...form, rol: v})} 
+                select 
+                options={['super_admin', 'direccion', 'profesor', 'administrativo', 'apoderado']} 
+              />
+              <p className="text-[10px] text-slate-400 mt-2">
+                **Atención**: Cambiar el rol afectará inmediatamente los permisos de acceso de este usuario.
+              </p>
+            </div>
+          )}
+          
           <div className="col-span-2 pt-4 mt-2 border-t border-slate-100">
             <h4 className="text-xs font-bold text-brand-600 uppercase tracking-widest mb-3 flex items-center gap-2">
               <Key className="w-3.5 h-3.5"/> Credenciales de Acceso a Bloom
@@ -222,6 +252,16 @@ export default function PersonalPage() {
       </Modal>
 
       <ConfirmDialog open={!!delId} onClose={()=>setDelId(null)} onConfirm={del} title="Eliminar Funcionario" message="¿Estás seguro de eliminar este funcionario? Esta acción no se puede deshacer." />
+
+      {success && (
+        <div className="fixed bottom-8 right-8 z-50 bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-2xl flex items-center gap-3 font-medium text-sm animate-fade-in shadow-2xl max-w-xs border-l-4 border-l-emerald-500">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-600">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <p>{success}</p>
+          <button className="ml-auto hover:underline text-xs" onClick={() => setSuccess('')}>Cerrar</button>
+        </div>
+      )}
     </div>
   )
 }

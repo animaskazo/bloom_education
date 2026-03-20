@@ -15,7 +15,7 @@ const tipoConfig = {
 const emptyForm = { titulo:'', contenido:'', tipo:'interno' as TipoComunicado, es_urgente:false, fecha_expiracion:'' }
 
 export default function ComunicadosPage() {
-  const { perfil }         = useAuth()
+  const { perfil, selectedEstablecimientoId }         = useAuth()
   const [rows, setRows]    = useState<Comunicado[]>([])
   const [filter, setFilter]= useState<TipoComunicado|''>('')
   const [loading, setLoading]= useState(true)
@@ -26,17 +26,19 @@ export default function ComunicadosPage() {
   const [saving, setSaving]= useState(false)
 
   async function load() {
+    if (!selectedEstablecimientoId) return
     setLoading(true)
     const { data } = await supabase
       .from('comunicados')
       .select('*, perfiles(nombre, apellido)')
       .eq('estado','activo')
+      .eq('establecimiento_id', selectedEstablecimientoId)
       .order('es_urgente', { ascending: false })
       .order('created_at', { ascending: false })
     setRows(data ?? [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [selectedEstablecimientoId])
 
   function openAdd() { setForm({...emptyForm}); setEditing(null); setModal('add') }
   function openEdit(r: Comunicado) {
@@ -45,8 +47,8 @@ export default function ComunicadosPage() {
   }
 
   async function save() {
-    if (!perfil?.establecimiento_id) {
-      alert('Error: No tienes un establecimiento asignado.')
+    if (!selectedEstablecimientoId) {
+      alert('Error: No hay un establecimiento seleccionado.')
       return
     }
 
@@ -59,7 +61,7 @@ export default function ComunicadosPage() {
       fecha_expiracion: form.fecha_expiracion||null, 
       autor_id: perfil?.id||null, 
       estado: 'activo' as const,
-      establecimiento_id: perfil.establecimiento_id
+      establecimiento_id: selectedEstablecimientoId
     }
 
     const { error: e } = editing

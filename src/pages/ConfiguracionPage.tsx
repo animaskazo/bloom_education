@@ -6,7 +6,8 @@ import { User, Lock, Bell, Shield, CheckCircle, Building } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function ConfiguracionPage() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId } = useAuth()
+  const isSuper = perfil?.rol === 'super_admin'
   const [saved, setSaved] = useState('')
   const [loading, setLoading] = useState(true)
   const [estData, setEstData] = useState<Establecimiento | null>(null)
@@ -22,22 +23,22 @@ export default function ConfiguracionPage() {
 
   useEffect(() => {
     async function init() {
-      if (perfil?.establecimiento_id) {
-        const { data } = await supabase.from('establecimientos').select('*').eq('id', perfil.establecimiento_id).single()
+      if (selectedEstablecimientoId) {
+        const { data } = await supabase.from('establecimientos').select('*').eq('id', selectedEstablecimientoId).single()
         if (data) setEstData(data)
       }
       setLoading(false)
     }
     init()
-  }, [perfil])
+  }, [selectedEstablecimientoId])
 
   async function saveEstablishment() {
-    if (!estData || !perfil?.establecimiento_id) return
+    if (!estData || !selectedEstablecimientoId) return
     setSaving(true); setError('')
     
     const { error: err } = await supabase.from('establecimientos')
       .update({ valor_mensualidad: estData.valor_mensualidad })
-      .eq('id', perfil.establecimiento_id)
+      .eq('id', selectedEstablecimientoId)
     
     if (err) {
       setError(err.message)

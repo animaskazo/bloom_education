@@ -1,30 +1,61 @@
-import { Bell, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Bell, Search, Building2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useLocation } from 'react-router-dom'
+import { supabase, Establecimiento } from '@/lib/supabase'
 
 const pageNames: Record<string, string> = {
-  '/app': 'Dashboard',
-  '/app/personal': 'Gestión de Personal',
-  '/app/estudiantes': 'Gestión de Estudiantes',
-  '/app/cursos': 'Gestión de Cursos',
-  '/app/comunicados': 'Comunicación Interna',
-  '/app/padres': 'Comunicación con Padres',
-  '/app/pagos': 'Pagos y Cobranza Apoderados',
-  '/app/proveedores': 'Pagos a Proveedores',
-  '/app/configuracion': 'Configuración',
+  '/dashboard': 'Dashboard',
+  '/personal': 'Gestión de Personal',
+  '/estudiantes': 'Gestión de Estudiantes',
+  '/cursos': 'Gestión de Cursos',
+  '/asistencia': 'Asistencia',
+  '/comunicados': 'Comunicación Interna',
+  '/padres': 'Gestión de Apoderados',
+  '/pagos': 'Pagos Apoderados',
+  '/proveedores': 'Pagos Proveedores',
+  '/configuracion': 'Configuración',
+  '/establecimientos': 'Establecimientos'
 }
 
 export default function Topbar() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId, setSelectedEstablecimientoId } = useAuth()
   const location = useLocation()
+  const [establecimientos, setEstablecimientos] = useState<Establecimiento[]>([])
+  
   const pageTitle = pageNames[location.pathname] ?? 'EduTrack'
   const initials = perfil
     ? `${perfil.nombre[0]}${perfil.apellido[0]}`.toUpperCase()
     : 'U'
 
+  useEffect(() => {
+    if (perfil?.rol === 'super_admin') {
+      supabase.from('establecimientos').select('*').eq('estado', 'activo').order('nombre')
+        .then(({ data }) => setEstablecimientos(data ?? []))
+    }
+  }, [perfil])
+
   return (
-    <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 gap-4 flex-shrink-0 shadow-nav">
-      <h2 className="font-semibold text-slate-800 text-base">Hola {perfil.nombre} {perfil.apellido}</h2>
+    <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 gap-4 flex-shrink-0 shadow-sm z-20">
+      <div className="flex items-center gap-3">
+        <h2 className="font-semibold text-slate-800 text-base">Hola {perfil?.nombre}</h2>
+        
+        {perfil?.rol === 'super_admin' && establecimientos.length > 0 && (
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-1 rounded-xl ml-2 animate-fade-in shadow-inner">
+            <Building2 className="w-3.5 h-3.5 text-brand-500" />
+            <select 
+              value={selectedEstablecimientoId || ''} 
+              onChange={(e) => setSelectedEstablecimientoId(e.target.value)}
+              className="bg-transparent border-none text-xs font-bold text-slate-600 focus:outline-none focus:ring-0 cursor-pointer pr-8"
+            >
+              <option value="">Seleccionar Colegio</option>
+              {establecimientos.map(e => (
+                <option key={e.id} value={e.id}>{e.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       <div className="ml-auto flex items-center gap-2">
         {/* Search */}

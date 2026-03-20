@@ -24,7 +24,7 @@ const adminItems = [
 
 // ── Permisos por rol ────────────────────────────────────────────────────────
 const ROL_RUTAS: Record<string, string[]> = {
-  super_admin: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  super_admin: ['/dashboard', '/establecimientos', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
   direccion: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
   profesor: ['/dashboard', '/cursos', '/asistencia', '/comunicados', '/padres'],
   administrativo: ['/dashboard', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
@@ -73,7 +73,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         {!collapsed && (
           <div className="animate-slide-in overflow-hidden">
-            <img src="src/img/logo.png" alt="Logo" width={160} />
+            <h1 className="page-title text-xl text-brand-600">Bloop Education</h1>
           </div>
         )}
         <button

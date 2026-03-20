@@ -11,7 +11,7 @@ const CONCEPTOS = ['Mensualidad','Matrícula','Material Didáctico','Alimentaci�
 const METODOS = ['Transferencia','Efectivo','Cheque','WebPay','Otro']
 
 export default function PagosPage() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId } = useAuth()
   const [rows, setRows]     = useState<PagoApoderado[]>([])
   const [apoderados, setApoderados] = useState<any[]>([])
   const [estudiantes, setEstudiantes] = useState<any[]>([])
@@ -48,7 +48,7 @@ export default function PagosPage() {
   async function uploadComprobante(f: File) {
     const fileExt = f.name.split('.').pop()
     const fileName = `${crypto.randomUUID()}.${fileExt}`
-    const filePath = `${perfil?.establecimiento_id}/${fileName}`
+    const filePath = `${selectedEstablecimientoId}/${fileName}`
 
     const { error: uploadError } = await supabase.storage
       .from('pagos')
@@ -87,7 +87,8 @@ export default function PagosPage() {
         
         setQuickPay(null)
         setFile(null)
-        load()
+        setSuccess('Pago registrado correctamente')
+        load(true)
     } catch (e: any) {
         setError(e.message)
     } finally {
@@ -97,14 +98,14 @@ export default function PagosPage() {
   }
 
   async function generarPagosAnuales() {
-    if (!perfil?.establecimiento_id) return
+    if (!selectedEstablecimientoId) return
     if (!confirm('¿Estás seguro de generar las 10 mensualidades (Marzo a Diciembre) para todos los alumnos activos?')) return
 
     setGenerating(true)
     setError('')
     
     try {
-        const { data: est } = await supabase.from('establecimientos').select('valor_mensualidad').eq('id', perfil.establecimiento_id).single()
+        const { data: est } = await supabase.from('establecimientos').select('valor_mensualidad').eq('id', selectedEstablecimientoId).single()
         const monto = est?.valor_mensualidad || 0
         
         if (!monto || monto <= 0) {
@@ -113,7 +114,7 @@ export default function PagosPage() {
             return
         }
 
-        const { data: ests } = await supabase.from('estudiantes').select('id, nombre, apellido').eq('establecimiento_id', perfil.establecimiento_id).eq('estado', 'activo')
+        const { data: ests } = await supabase.from('estudiantes').select('id, nombre, apellido').eq('establecimiento_id', selectedEstablecimientoId).eq('estado', 'activo')
         const { data: rels } = await supabase.from('estudiante_apoderado').select('estudiante_id, apoderado_id').eq('es_titular', true)
 
         if (!ests || ests.length === 0) {
@@ -139,7 +140,7 @@ export default function PagosPage() {
                 allPayments.push({
                     apoderado_id: apoderadoId,
                     estudiante_id: est.id,
-                    establecimiento_id: perfil.establecimiento_id,
+                    establecimiento_id: selectedEstablecimientoId,
                     concepto: 'Mensualidad',
                     monto: monto,
                     mes_periodo: `${mes} ${year}`,
@@ -157,8 +158,8 @@ export default function PagosPage() {
 
         const { error: insErr } = await supabase.from('pagos_apoderados').insert(allPayments)
         if (insErr) throw insErr
-
-        await load()
+        setSuccess(`Se han generado ${allPayments.length} mensualidades exitosamente.`)
+        await load(true)
     } catch (e: any) {
         setError('Error al generar pagos: ' + e.message)
     } finally {
@@ -167,7 +168,7 @@ export default function PagosPage() {
   }
 
   async function limpiarPagos() {
-    if (!perfil?.establecimiento_id) return
+    if (!selectedEstablecimientoId) return
     try {
       setClearing(true)
       setError('')
@@ -175,12 +176,12 @@ export default function PagosPage() {
       const { error } = await supabase
         .from('pagos_apoderados')
         .delete()
-        .eq('establecimiento_id', perfil.establecimiento_id)
+        .eq('establecimiento_id', selectedEstablecimientoId)
       
       if (error) throw error
       
       setSuccess('Se han eliminado todos los pagos correctamente.')
-      load()
+      load(true)
     } catch (e: any) {
       console.error('Error clearing payments:', e)
       setError(`Error al eliminar los pagos: ${e.message}`)
@@ -190,20 +191,29 @@ export default function PagosPage() {
     }
   }
 
-  async function load() {
-    setLoading(true)
+  async function load(silent = false) {
+    if (!selectedEstablecimientoId) return
+    if (!silent) setLoading(true)
     const [{ data: pagos }, { data: apod }, { data: est }, { data: cur }] = await Promise.all([
-      supabase.from('pagos_apoderados').select('*, apoderados(nombre,apellido,rut), estudiantes(nombre,apellido,rut,curso_id)').order('fecha_vencimiento'),
-      supabase.from('apoderados').select('id,nombre,apellido,rut').order('apellido'),
-      supabase.from('estudiantes').select('id,nombre,apellido,rut,curso_id').eq('estado','activo').order('apellido'),
-      supabase.from('cursos').select('id,nombre').order('nombre')
+      supabase.from('pagos_apoderados').select('*, apoderados(nombre,apellido,rut), estudiantes(nombre,apellido,rut,curso_id)').eq('establecimiento_id', selectedEstablecimientoId).order('fecha_vencimiento'),
+      supabase.from('apoderados').select('id,nombre,apellido,rut').eq('establecimiento_id', selectedEstablecimientoId).order('apellido'),
+      supabase.from('estudiantes').select('id,nombre,apellido,rut,curso_id').eq('estado','activo').eq('establecimiento_id', selectedEstablecimientoId).order('apellido'),
+      supabase.from('cursos').select('id,nombre').eq('establecimiento_id', selectedEstablecimientoId).order('nombre')
     ])
     setRows(pagos??[]); setApoderados(apod??[]); setEstudiantes(est??[]); setCursos(cur??[])
-    if (cur && cur.length > 0) setExpandedCursos([cur[0].id])
-    else setExpandedCursos(['unassigned'])
-    setLoading(false)
+    // Only set default if currently empty to preserve state on silent refresh
+    if (cur && cur.length > 0 && expandedCursos.length === 0) setExpandedCursos([cur[0].id])
+    else if (expandedCursos.length === 0) setExpandedCursos(['unassigned'])
+    if (!silent) setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [selectedEstablecimientoId])
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [success])
 
   function openAdd() { setForm({...emptyForm, comprobante_url:''}); setEditing(null); setError(''); setModal('add'); setFile(null) }
   function openEdit(r: any) {
@@ -213,12 +223,13 @@ export default function PagosPage() {
 
   async function marcarPagado(id: string) {
     await supabase.from('pagos_apoderados').update({ estado:'pagado', fecha_pago: new Date().toISOString().split('T')[0] }).eq('id', id)
-    load()
+    setSuccess('Estado actualizado')
+    load(true)
   }
 
   async function save() {
-    if (!perfil?.establecimiento_id) {
-      setError('No tienes un establecimiento asignado.')
+    if (!selectedEstablecimientoId) {
+      setError('No hay un establecimiento seleccionado.')
       return
     }
 
@@ -255,7 +266,8 @@ export default function PagosPage() {
         setSaving(false)
         setModal(null)
         setFile(null)
-        load()
+        setSuccess(editing ? 'Pago actualizado' : 'Pago creado')
+        load(true)
     } catch (e: any) {
         setError(e.message)
         setSaving(false)
@@ -266,7 +278,8 @@ export default function PagosPage() {
   async function del() {
     if (!delId) return
     await supabase.from('pagos_apoderados').delete().eq('id', delId)
-    setDelId(null); load()
+    setSuccess('Registro de pago eliminado')
+    setDelId(null); load(true)
   }
 
   const filtered = rows.filter(r => {
@@ -733,6 +746,16 @@ export default function PagosPage() {
         confirmLabel="Sí, eliminar todo"
         loading={clearing}
       />
+
+      {success && (
+        <div className="fixed bottom-8 right-8 z-50 bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-2xl flex items-center gap-3 font-medium text-sm animate-fade-in shadow-2xl max-w-xs border-l-4 border-l-emerald-500">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-600">
+            <CheckCircle className="w-4 h-4" />
+          </div>
+          <p>{success}</p>
+          <button className="ml-auto hover:underline text-xs" onClick={() => setSuccess('')}>Cerrar</button>
+        </div>
+      )}
     </div>
   )
 }

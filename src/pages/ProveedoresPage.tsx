@@ -10,7 +10,7 @@ const emptyProv = { rut:'', razon_social:'', nombre_fantasia:'', rubro:'', conta
 const RUBROS = ['Aseo y Mantención','Material Escolar','Alimentación','Transporte','Tecnología','Construcción','Servicios Profesionales','Otro']
 
 export default function ProveedoresPage() {
-  const { perfil }             = useAuth()
+  const { perfil, selectedEstablecimientoId }             = useAuth()
   const [tab, setTab]           = useState<'pagos'|'proveedores'>('pagos')
   const [pagos, setPagos]       = useState<PagoProveedor[]>([])
   const [provs, setProvs]       = useState<Proveedor[]>([])
@@ -29,18 +29,19 @@ export default function ProveedoresPage() {
   const [error, setError]       = useState('')
 
   async function load() {
+    if (!selectedEstablecimientoId) return
     setLoading(true)
     const [{ data: pg }, { data: pr }] = await Promise.all([
-      supabase.from('pagos_proveedores').select('*, proveedores(razon_social,nombre_fantasia,rut)').order('fecha_vencimiento'),
-      supabase.from('proveedores').select('*').order('razon_social'),
+      supabase.from('pagos_proveedores').select('*, proveedores(razon_social,nombre_fantasia,rut)').eq('establecimiento_id', selectedEstablecimientoId).order('fecha_vencimiento'),
+      supabase.from('proveedores').select('*').eq('establecimiento_id', selectedEstablecimientoId).order('razon_social'),
     ])
     setPagos(pg??[]); setProvs(pr??[])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [selectedEstablecimientoId])
 
   async function savePago() {
-    if (!perfil?.establecimiento_id) { setError('No tienes colegio asignado.'); return }
+    if (!selectedEstablecimientoId) { setError('No hay colegio seleccionado.'); return }
     setSaving(true); setError('')
     const payload = { 
         proveedor_id:formPago.proveedor_id, 
@@ -51,7 +52,7 @@ export default function ProveedoresPage() {
         estado:formPago.estado, 
         numero_factura:formPago.numero_factura||null, 
         notas:formPago.notas||null,
-        establecimiento_id: perfil.establecimiento_id
+        establecimiento_id: selectedEstablecimientoId
     }
     const { error: e } = editingPago
       ? await supabase.from('pagos_proveedores').update(payload).eq('id', editingPago.id)
@@ -61,7 +62,7 @@ export default function ProveedoresPage() {
   }
 
   async function saveProv() {
-    if (!perfil?.establecimiento_id) { setError('No tienes colegio asignado.'); return }
+    if (!selectedEstablecimientoId) { setError('No hay colegio seleccionado.'); return }
     setSaving(true); setError('')
     const payload = { 
         rut:formProv.rut, 
@@ -74,7 +75,7 @@ export default function ProveedoresPage() {
         direccion:formProv.direccion||null, 
         banco:formProv.banco||null, 
         cuenta_bancaria:formProv.cuenta_bancaria||null,
-        establecimiento_id: perfil.establecimiento_id
+        establecimiento_id: selectedEstablecimientoId
     }
     const { error: e } = editingProv
       ? await supabase.from('proveedores').update(payload).eq('id', editingProv.id)

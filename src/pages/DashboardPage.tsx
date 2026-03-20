@@ -34,7 +34,7 @@ function fmt(n: number) {
 }
 
 export default function DashboardPage() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState<Stats>({
     personal: 0, estudiantes: 0, cursos: 0, pagosPendientes: 0, pagosVencidos: 0, comunicados: 0, valorMensualidad: 0,
@@ -45,25 +45,25 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (perfil?.rol === 'super_admin') {
+    if (perfil?.rol === 'super_admin' && !selectedEstablecimientoId) {
       navigate('/establecimientos', { replace: true })
     }
-  }, [perfil, navigate])
+  }, [perfil, selectedEstablecimientoId, navigate])
 
   useEffect(() => {
-    if (!perfil) return
+    if (!perfil || !selectedEstablecimientoId) return
     async function load() {
       const mIdx = new Date().getMonth()
       const currentMonth = (mIdx >= 2 && mIdx <= 11) ? MESES_FULL[mIdx - 2] : 'Marzo'
 
       const [personal, estudiantes, cursos, pagos, comunicados, estConfig, pagosProv] = await Promise.all([
-        supabase.from('personal').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
-        supabase.from('estudiantes').select('*, cursos(nivel, nombre)').eq('estado', 'activo'),
-        supabase.from('cursos').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
-        supabase.from('pagos_apoderados').select('estado, monto, mes_periodo, fecha_pago'),
-        supabase.from('comunicados').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
-        supabase.from('establecimientos').select('valor_mensualidad').eq('id', perfil.establecimiento_id).single(),
-        supabase.from('pagos_proveedores').select('monto, fecha_pago, estado').eq('estado', 'pagado')
+        supabase.from('personal').select('id', { count: 'exact', head: true }).eq('estado', 'activo').eq('establecimiento_id', selectedEstablecimientoId),
+        supabase.from('estudiantes').select('*, cursos(nivel, nombre)').eq('estado', 'activo').eq('establecimiento_id', selectedEstablecimientoId),
+        supabase.from('cursos').select('id', { count: 'exact', head: true }).eq('estado', 'activo').eq('establecimiento_id', selectedEstablecimientoId),
+        supabase.from('pagos_apoderados').select('estado, monto, mes_periodo, fecha_pago').eq('establecimiento_id', selectedEstablecimientoId),
+        supabase.from('comunicados').select('id', { count: 'exact', head: true }).eq('estado', 'activo').eq('establecimiento_id', selectedEstablecimientoId),
+        supabase.from('establecimientos').select('valor_mensualidad').eq('id', selectedEstablecimientoId).single(),
+        supabase.from('pagos_proveedores').select('monto, fecha_pago, estado').eq('estado', 'pagado').eq('establecimiento_id', selectedEstablecimientoId)
       ])
 
       const countEst = estudiantes.data?.length ?? 0
@@ -124,10 +124,29 @@ export default function DashboardPage() {
         }
       })
       setChartData(data)
+      const chart = MESES.map((m, i) => ({
+        name: m,
+        recaudado: pagos.data?.filter(p => p.estado === 'pagado' && p.mes_periodo?.includes(MESES_FULL[i])).reduce((s, p) => s + Number(p.monto), 0) ?? 0,
+        proyectado: proyectadoMensual
+      }))
+      setChartData(chart)
+      setStats({
+        personal: personal.count ?? 0,
+        estudiantes: countEst,
+        cursos: cursos.count ?? 0,
+        pagosPendientes: pendientes,
+        pagosVencidos: vencidos,
+        comunicados: comunicados.count ?? 0,
+        valorMensualidad: valorMens,
+        recaudadoMes: recMes,
+        pendienteMes: penMes,
+        gastosMes: gasMes,
+        balanceNeto: recMes - gasMes
+      })
       setLoading(false)
     }
     load()
-  }, [perfil])
+  }, [perfil, selectedEstablecimientoId])
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -167,15 +186,15 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#061224ff' }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                   <Tooltip
                     formatter={(v: any) => fmt(v)}
                     labelStyle={{ fontSize: 12, fontWeight: 600 }}
                     contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                   />
-                  <Bar dataKey="proyectado" name="Proyectado" fill="#f1f5f9" radius={[4, 4, 0, 0]} barSize={40} />
-                  <Bar dataKey="recaudado" name="Recaudado Real" fill="#0870f5" radius={[4, 4, 0, 0]} barSize={20} style={{ transform: 'translateX(-10px)' }} />
+                  <Bar dataKey="proyectado" name="Proyectado" fill="#d2e2ecff" radius={[4, 4, 0, 0]} barSize={20} />
+                  <Bar dataKey="recaudado" name="Recaudado Real" fill="#12ac52ff" radius={[4, 4, 0, 0]} barSize={40} style={{ transform: 'translateX(-10px)' }} />
                 </ComposedChart>
               </ResponsiveContainer>
             )}

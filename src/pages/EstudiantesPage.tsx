@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, Estudiante, Curso, EstadoGeneral } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader, Modal, ConfirmDialog, EmptyState, EstadoBadge, Spinner } from '@/components/ui'
-import { Plus, Pencil, Trash2, GraduationCap, Search, Filter, ChevronDown, ChevronRight, User, FileText, Heart, Activity, Phone, Shield } from 'lucide-react'
+import { Plus, Pencil, Trash2, GraduationCap, Search, Filter, ChevronDown, ChevronRight, User, FileText, Heart, Activity, Phone, Shield, CheckCircle, ShieldCheck } from 'lucide-react'
 import { format, differenceInYears } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -13,7 +13,7 @@ const emptyForm = {
 }
 
 export default function EstudiantesPage() {
-  const { perfil } = useAuth()
+  const { perfil, selectedEstablecimientoId } = useAuth()
   const canEdit = perfil?.rol === 'super_admin' || perfil?.rol === 'direccion' || perfil?.rol === 'administrativo'
   const [rows, setRows]       = useState<Estudiante[]>([])
   const [cursos, setCursos]   = useState<Curso[]>([])
@@ -27,26 +27,35 @@ export default function EstudiantesPage() {
   const [form, setForm]       = useState({ ...emptyForm })
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
+  const [success, setSuccess] = useState('')
   const [expandedCursos, setExpandedCursos] = useState<string[]>([])
 
   const toggleCurso = (id: string) => {
     setExpandedCursos(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  async function load() {
-    setLoading(true)
+  async function load(silent = false) {
+    if (!selectedEstablecimientoId) return
+    if (!silent) setLoading(true)
     const [{ data: est }, { data: cur }] = await Promise.all([
-      supabase.from('estudiantes').select('*, cursos(id,nombre,nivel,letra)').order('apellido'),
-      supabase.from('cursos').select('*').eq('estado','activo').order('nombre'),
+      supabase.from('estudiantes').select('*, cursos(id,nombre,nivel,letra)').eq('establecimiento_id', selectedEstablecimientoId).order('apellido'),
+      supabase.from('cursos').select('*').eq('estado','activo').eq('establecimiento_id', selectedEstablecimientoId).order('nombre'),
     ])
     setRows(est ?? [])
     setCursos(cur ?? [])
-    // Expand only the first course by default
-    if (cur && cur.length > 0) setExpandedCursos([cur[0].id])
-    else setExpandedCursos(['unassigned'])
-    setLoading(false)
+    // Expand only the first course by default if none are expanded
+    if (cur && cur.length > 0 && expandedCursos.length === 0) setExpandedCursos([cur[0].id])
+    else if (expandedCursos.length === 0) setExpandedCursos(['unassigned'])
+    if (!silent) setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [selectedEstablecimientoId])
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [success])
 
   function openAdd()  { setForm({...emptyForm}); setEditing(null); setError(''); setModal('add'); setActiveTab('personal') }
   function openEdit(r: any) {
@@ -63,8 +72,8 @@ export default function EstudiantesPage() {
   }
 
   async function save() {
-    if (!perfil?.establecimiento_id) {
-      setError('No tienes un establecimiento asignado.')
+    if (!selectedEstablecimientoId) {
+      setError('No hay un establecimiento seleccionado.')
       return
     }
 
@@ -86,7 +95,7 @@ export default function EstudiantesPage() {
       prevision_salud: form.prevision_salud||null,
       contacto_emergencia_nombre: form.contacto_emergencia_nombre||null,
       contacto_emergencia_telefono: form.contacto_emergencia_telefono||null,
-      establecimiento_id: perfil.establecimiento_id
+      establecimiento_id: selectedEstablecimientoId
     }
 
     const { error: e } = editing
@@ -94,13 +103,15 @@ export default function EstudiantesPage() {
       : await supabase.from('estudiantes').insert([payload])
 
     if (e) { setError(e.message); setSaving(false); return }
-    setSaving(false); setModal(null); load()
+    setSuccess(editing ? 'Estudiante actualizado correctamente' : 'Estudiante creado correctamente')
+    setSaving(false); setModal(null); load(true)
   }
 
   async function del() {
     if (!delId) return
     await supabase.from('estudiantes').delete().eq('id', delId)
-    setDelId(null); load()
+    setSuccess('Ficha de estudiante eliminada')
+    setDelId(null); load(true)
   }
 
   const filtered = rows.filter(r => {
@@ -390,6 +401,16 @@ export default function EstudiantesPage() {
       </Modal>
 
       <ConfirmDialog open={!!delId} onClose={()=>setDelId(null)} onConfirm={del} title="Eliminar Estudiante" message="¿Estás seguro de eliminar este estudiante? Se perderán todos sus datos asociados." />
+
+      {success && (
+        <div className="fixed bottom-8 right-8 z-50 bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-2xl flex items-center gap-3 font-medium text-sm animate-fade-in shadow-2xl max-w-xs border-l-4 border-l-emerald-500">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-600">
+            <CheckCircle className="w-4 h-4" />
+          </div>
+          <p>{success}</p>
+          <button className="ml-auto hover:underline text-xs" onClick={() => setSuccess('')}>Cerrar</button>
+        </div>
+      )}
     </div>
   )
 }
