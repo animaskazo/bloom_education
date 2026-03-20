@@ -438,8 +438,8 @@ export default function LandingPage() {
           <div className="lp-petals" ref={petalsRef} />
 
           <h1 className="lp-hero-h1">
-            El jardín florece<br />
-            <span className="lp-grad">cuando tú descansas.</span>
+            Menos papeleo,<br />
+            <span className="lp-grad">Más sonrisas</span>
           </h1>
 
           <p className="lp-hero-sub">
