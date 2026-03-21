@@ -13,7 +13,7 @@ export default function EstablecimientosPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState<'add' | 'edit' | 'directivo' | 'users' | null>(null)
-  const [establishmentUsers, setEstablishmentUsers] = useState<Perfil[]>([])
+  const [establishmentUsers, setEstablishmentUsers] = useState<any[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [delId, setDelId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Establecimiento | null>(null)
@@ -66,7 +66,7 @@ export default function EstablecimientosPage() {
     setEditing(r)
     setModal('users')
     setLoadingUsers(true)
-    const { data } = await supabase.from('perfiles').select('*').eq('establecimiento_id', r.id).order('nombre')
+    const { data } = await supabase.from('personal').select('*').eq('establecimiento_id', r.id).order('nombre')
     setEstablishmentUsers(data ?? [])
     setLoadingUsers(false)
   }

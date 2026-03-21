@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPerfilLoading(true)
 
         const { data, error } = await supabase
-          .from('perfiles')
+          .from('personal')
           .select('*')
           .eq('id', session.user.id)
           .single()

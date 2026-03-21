@@ -27,7 +27,7 @@ export default function PersonalPage() {
   async function load(silent = false) {
     if (!selectedEstablecimientoId) return
     if (!silent) setLoading(true)
-    const { data } = await supabase.from('personal').select('*, perfiles(rol)').eq('establecimiento_id', selectedEstablecimientoId).order('apellido')
+    const { data } = await supabase.from('personal').select('*').eq('establecimiento_id', selectedEstablecimientoId).order('apellido')
     setRows(data ?? [])
     
     // Ahora sabemos si tiene acceso simplemente si el ID coincide con la estructura de Auth
@@ -45,7 +45,7 @@ export default function PersonalPage() {
 
   function openAdd()  { setForm({ ...emptyForm }); setEditing(null); setError(''); setModal('add') }
   function openEdit(r: any) {
-    setForm({ rut: r.rut, nombre: r.nombre, apellido: r.apellido, email: r.email??'', telefono: r.telefono??'', cargo: r.cargo, departamento: r.departamento??'', fecha_ingreso: r.fecha_ingreso??'', tipo_contrato: r.tipo_contrato??'contrata', sueldo_base: r.sueldo_base?.toString()??'', estado: r.estado, password: '', rol: r.perfiles?.rol || '' })
+    setForm({ rut: r.rut, nombre: r.nombre, apellido: r.apellido, email: r.email??'', telefono: r.telefono??'', cargo: r.cargo, departamento: r.departamento??'', fecha_ingreso: r.fecha_ingreso??'', tipo_contrato: r.tipo_contrato??'contrata', sueldo_base: r.sueldo_base?.toString()??'', estado: r.estado, password: '', rol: r.rol || '' })
     setEditing(r); setError(''); setModal('edit')
   }
 

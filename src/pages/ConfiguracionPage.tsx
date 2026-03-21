@@ -53,7 +53,7 @@ export default function ConfiguracionPage() {
   async function saveProfile() {
     if (!perfil) return
     setSaving(true)
-    await supabase.from('perfiles').update({ nombre: form.nombre, apellido: form.apellido, telefono: form.telefono }).eq('id', perfil.id)
+    await supabase.from('personal').update({ nombre: form.nombre, apellido: form.apellido, telefono: form.telefono }).eq('id', perfil.id)
     setSaving(false); setSaved('perfil')
     setTimeout(() => setSaved(''), 3000)
   }
