@@ -27,11 +27,21 @@ export default function PersonalPage() {
   async function load(silent = false) {
     if (!selectedEstablecimientoId) return
     if (!silent) setLoading(true)
+    
+    // 1. Cargar lista de personal
     const { data } = await supabase.from('personal').select('*').eq('establecimiento_id', selectedEstablecimientoId).order('apellido')
     setRows(data ?? [])
     
-    // Ahora sabemos si tiene acceso simplemente si el ID coincide con la estructura de Auth
-    // O si ya tenemos su email registrado en esta misma tabla.
+    // 2. Cargar quiénes tienen acceso real (RPC)
+    const { data: authData } = await supabase.rpc('obtener_staff_con_acceso')
+    if (authData) {
+      const authMap: Record<string, boolean> = {}
+      authData.forEach((item: { id: string }) => {
+        authMap[item.id] = true
+      })
+      setHasAuth(authMap)
+    }
+
     if (!silent) setLoading(false)
   }
   useEffect(() => { load() }, [selectedEstablecimientoId])
@@ -163,7 +173,7 @@ export default function PersonalPage() {
                     <td className="font-mono text-sm">{r.rut}</td>
                     <td>{r.cargo}</td>
                     <td>
-                      {hasAuth[r.rut] ? (
+                      {hasAuth[r.id] ? (
                         <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full text-[10px] font-bold">
                           <ShieldCheck className="w-3 h-3"/> ACTIVO
                         </span>
