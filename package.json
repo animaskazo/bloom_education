@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@kapso/whatsapp-cloud-api": "^0.2.1",
     "@supabase/supabase-js": "^2.39.0",
     "clsx": "^2.1.0",
     "date-fns": "^3.3.1",
@@ -19,6 +20,7 @@
     "recharts": "^2.12.0"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.2.1",

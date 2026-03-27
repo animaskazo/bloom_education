@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { PageHeader, EmptyState, Spinner, Modal, ConfirmDialog } from '@/components/ui'
 import { Plus, Pencil, Trash2, Users, Phone, Mail, Search, ChevronDown, ChevronUp, UserPlus, X, Wand2, AlertTriangle, CheckCircle, GraduationCap, ChevronRight } from 'lucide-react'
 import { ModalEnviarEmail } from '@/components/ModalEnviarEmail'
-import { EmailTarget } from '@/hooks/useEmailApoderados'
+import { MensajeTarget } from '@/hooks/useMensajeriaApoderados'
 
 type ApoderadoExt = Apoderado & { estudiantes?: { id: string; nombre: string; apellido: string; cursos?: { id: string; nombre: string; letra?: string } }[] }
 
@@ -14,7 +14,7 @@ const NAMES_POOL = ['Juan', 'Pedro', 'Maria', 'Ana', 'Jose', 'Luis', 'Carla', 'D
 const LAST_NAMES_POOL = ['Gonzalez', 'Rodriguez', 'Muñoz', 'Rojas', 'Diaz', 'Perez', 'Soto', 'Contreras', 'Silva', 'Martinez', 'Sepulveda', 'Morales', 'Fuentes', 'Valenzuela', 'Araya', 'Castillo', 'Tapia', 'Zuniga', 'Pizarro', 'Guzman']
 
 export default function PadresPage() {
-  const [emailModal, setEmailModal] = useState<{ destinatarios: EmailTarget[]; contexto: string } | null>(null)
+  const [emailModal, setEmailModal] = useState<{ destinatarios: MensajeTarget[]; contexto: string } | null>(null)
 
   const { perfil, selectedEstablecimientoId } = useAuth()
   const [rows, setRows] = useState<ApoderadoExt[]>([])
@@ -277,7 +277,7 @@ export default function PadresPage() {
             <button
               className="btn-secondary border-brand-200 text-brand-600 hover:bg-brand-50"
               onClick={() => setEmailModal({
-                destinatarios: rows.filter(r => r.email).map(r => ({ nombre: `${r.nombre} ${r.apellido}`, email: r.email! })),
+                destinatarios: rows.filter(r => r.email || r.telefono).map(r => ({ nombre: `${r.nombre} ${r.apellido}`, email: r.email ?? undefined, telefono: r.telefono ?? undefined })),
                 contexto: 'todos los apoderados del establecimiento'
               })}
             >
@@ -371,7 +371,7 @@ export default function PadresPage() {
                         onClick={e => {
                           e.stopPropagation()
                           setEmailModal({
-                            destinatarios: data.apoderados.filter(r => r.email).map(r => ({ nombre: `${r.nombre} ${r.apellido}`, email: r.email! })),
+                            destinatarios: data.apoderados.filter(r => r.email || r.telefono).map(r => ({ nombre: `${r.nombre} ${r.apellido}`, email: r.email ?? undefined, telefono: r.telefono ?? undefined })),
                             contexto: `apoderados de ${data.nombre}${data.letra ? ' ' + data.letra : ''}`
                           })
                         }}
@@ -418,7 +418,7 @@ export default function PadresPage() {
                                   onClick={e => {
                                     e.stopPropagation()
                                     setEmailModal({
-                                      destinatarios: r.email ? [{ nombre: `${r.nombre} ${r.apellido}`, email: r.email }] : [],
+                                      destinatarios: (r.email || r.telefono) ? [{ nombre: `${r.nombre} ${r.apellido}`, email: r.email ?? undefined, telefono: r.telefono ?? undefined }] : [],
                                       contexto: `${r.nombre} ${r.apellido}`
                                     })
                                   }}
