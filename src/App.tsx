@@ -75,11 +75,15 @@ function AppRoutes() {
   )
 }
 
+import { MensajeriaProvider } from '@/contexts/MensajeriaContext'
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <MensajeriaProvider>
+          <AppRoutes />
+        </MensajeriaProvider>
       </AuthProvider>
     </BrowserRouter>
   )

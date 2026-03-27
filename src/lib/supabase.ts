@@ -23,6 +23,7 @@ export type Database = {
       pagos_proveedores: { Row: PagoProveedor; Insert: Omit<PagoProveedor, 'id' | 'created_at'>; Update: Partial<PagoProveedor> }
       establecimientos: { Row: Establecimiento; Insert: Omit<Establecimiento, 'id' | 'created_at'>; Update: Partial<Establecimiento> }
       asistencia: { Row: Asistencia; Insert: Omit<Asistencia, 'id' | 'created_at'>; Update: Partial<Asistencia> }
+      comunicados_envios: { Row: ComunicadoEnvio; Insert: Omit<ComunicadoEnvio, 'id' | 'created_at'>; Update: Partial<ComunicadoEnvio> }
     }
   }
 }
@@ -161,6 +162,18 @@ export interface Comunicado {
   created_at: string
   perfiles?: Perfil
   cursos?: Curso
+  comunicados_envios?: ComunicadoEnvio[]
+}
+
+export interface ComunicadoEnvio {
+  id: string
+  comunicado_id: string
+  enviado_por_id: string
+  metodo: string
+  cantidad_personas: number
+  detalles: any
+  created_at: string
+  perfiles?: Perfil
 }
 
 export interface PagoApoderado {

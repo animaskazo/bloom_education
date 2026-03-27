@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { supabase, Apoderado, Estudiante, Curso } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader, EmptyState, Spinner, Modal, ConfirmDialog } from '@/components/ui'
-import { Plus, Pencil, Trash2, Users, Phone, Mail, Search, ChevronDown, ChevronUp, UserPlus, X, Wand2, AlertTriangle, CheckCircle, GraduationCap, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Users, Phone, Mail, Search, ChevronDown, ChevronUp, UserPlus, X, Wand2, AlertTriangle, CheckCircle, GraduationCap, ChevronRight, Send } from 'lucide-react'
 import { ModalEnviarEmail } from '@/components/ModalEnviarEmail'
-import { MensajeTarget } from '@/hooks/useMensajeriaApoderados'
+import { MensajeTarget } from '@/contexts/MensajeriaContext'
 
 type ApoderadoExt = Apoderado & { estudiantes?: { id: string; nombre: string; apellido: string; cursos?: { id: string; nombre: string; letra?: string } }[] }
 
@@ -281,8 +281,8 @@ export default function PadresPage() {
                 contexto: 'todos los apoderados del establecimiento'
               })}
             >
-              <Mail className="w-4 h-4" />
-              Enviar a todos
+              <Send className="w-4 h-4" />
+              Enviar mensaje a todos
             </button>
             <button
               className="btn-secondary border-brand-200 text-brand-600 hover:bg-brand-50"
@@ -376,7 +376,7 @@ export default function PadresPage() {
                           })
                         }}
                       >
-                        <Mail className="w-3.5 h-3.5" /> Email al curso
+                        <Send className="w-3.5 h-3.5" /> Enviar mensaje al curso
                       </button>
                     </div>
                     {expandedCursos.includes(id) ? (

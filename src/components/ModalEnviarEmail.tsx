@@ -1,24 +1,30 @@
 import { useState } from 'react'
 import { Modal } from '@/components/ui'
 import { Send, Loader2, Mail, Users, User, MessageCircle } from 'lucide-react'
-import { useMensajeriaApoderados, MensajeTarget, CanalMensaje } from '@/hooks/useMensajeriaApoderados'
+import { useMensajeriaGlobal, MensajeTarget, CanalMensaje } from '@/contexts/MensajeriaContext'
 
 interface Props {
     open: boolean
     onClose: () => void
     destinatarios: MensajeTarget[]
     contexto: string // ej: "Juan Pérez" | "Curso 1°A" | "todos los apoderados"
+    onSuccess?: (res: any) => void
+    initialCanal?: CanalMensaje | 'none'
 }
 
-export function ModalEnviarEmail({ open, onClose, destinatarios, contexto }: Props) {
-    const { enviarMensaje } = useMensajeriaApoderados()
+export function ModalEnviarEmail({ open, onClose, destinatarios, contexto, onSuccess, initialCanal }: Props) {
+    const { enviarMensaje, isSending } = useMensajeriaGlobal()
     const [asunto, setAsunto] = useState('')
     const [mensaje, setMensaje] = useState('')
-    const [canal, setCanal] = useState<CanalMensaje>('whatsapp')
+    const [canal, setCanal] = useState<CanalMensaje>(initialCanal && initialCanal !== 'none' ? initialCanal as CanalMensaje : 'whatsapp')
     const [estado, setEstado] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
     const [resultado, setResultado] = useState('')
 
     const handleClose = () => {
+        if (isSending) {
+            onClose()
+            return
+        }
         setAsunto(''); setMensaje(''); setEstado('idle'); setResultado(''); setCanal('whatsapp')
         onClose()
     }
@@ -26,11 +32,11 @@ export function ModalEnviarEmail({ open, onClose, destinatarios, contexto }: Pro
     const handleEnviar = async () => {
         if (!mensaje.trim()) return
         if ((canal === 'email' || canal === 'ambos') && !asunto.trim()) return
-        
+
         setEstado('loading')
         try {
             const res = await enviarMensaje({ destinatarios, asunto: (canal === 'whatsapp' ? '' : asunto), mensaje, canal })
-            
+
             let resText = ''
             if (canal === 'email' || canal === 'ambos') {
                 resText += `${res.enviadosEmail} emails enviados`
@@ -45,6 +51,7 @@ export function ModalEnviarEmail({ open, onClose, destinatarios, contexto }: Pro
 
             setResultado(resText)
             setEstado('success')
+            if (onSuccess) onSuccess(res)
         } catch {
             setResultado('Error al enviar. Verifica tu configuración.')
             setEstado('error')
@@ -81,29 +88,28 @@ export function ModalEnviarEmail({ open, onClose, destinatarios, contexto }: Pro
                 <div className="form-group">
                     <label className="label">¿Por dónde enviar el comunicado?</label>
                     <div className="grid grid-cols-3 gap-2">
-                        <button 
+                        <button
                             className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-colors ${canal === 'email' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50'}`}
                             onClick={() => setCanal('email')}
                         >
                             <Mail className={`w-5 h-5 mb-1 ${canal === 'email' ? 'text-brand-500' : 'text-slate-400'}`} />
                             <span className="text-xs font-semibold">Email</span>
                         </button>
-                        <button 
+                        <button
                             className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-colors ${canal === 'whatsapp' ? 'border-[#25D366] bg-[#25D366]/10 text-[#075E54]' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50'}`}
                             onClick={() => setCanal('whatsapp')}
                         >
                             <MessageCircle className={`w-5 h-5 mb-1 ${canal === 'whatsapp' ? 'text-[#25D366]' : 'text-slate-400'}`} />
                             <span className="text-xs font-semibold">WhatsApp</span>
                         </button>
-                        <button 
+                        <button
                             className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-colors ${canal === 'ambos' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-white text-slate-500 hover:bg-slate-50'}`}
                             onClick={() => setCanal('ambos')}
                         >
                             <div className="flex mb-1">
-                                <Mail className={`w-4 h-4 -mr-1 z-10 ${canal === 'ambos' ? 'text-indigo-500' : 'text-slate-400'}`} />
-                                <MessageCircle className={`w-4 h-4 ml-0.5 ${canal === 'ambos' ? 'text-indigo-400' : 'text-slate-300'}`} />
+                                <Send className={`w-4 h-4 -mr-1 z-10 ${canal === 'ambos' ? 'text-indigo-500' : 'text-slate-400'}`} />
                             </div>
-                            <span className="text-xs font-semibold">Ambos</span>
+                            <span className="text-xs font-semibold">Email y WhatsApp</span>
                         </button>
                     </div>
                 </div>
@@ -146,6 +152,16 @@ export function ModalEnviarEmail({ open, onClose, destinatarios, contexto }: Pro
                         disabled={estado === 'loading' || estado === 'success'}
                     />
                 </div>
+
+                {estado === 'loading' && (
+                    <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 flex items-center gap-3 animate-pulse">
+                        <Loader2 className="w-5 h-5 text-brand-500 animate-spin" />
+                        <div>
+                            <p className="text-sm font-bold text-brand-700">Enviando comunicado...</p>
+                            <p className="text-xs text-brand-600">Puedes cerrar esta ventana, el progreso seguirá en la parte superior.</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Feedback */}
                 {estado === 'success' && (
