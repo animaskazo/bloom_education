@@ -806,7 +806,7 @@ export default function PagosPage() {
                                         destinatarios: [{ nombre: `${apo.nombre} ${apo.apellido}`, email: apo.email || undefined, telefono: apo.telefono || undefined }],
                                         contexto: `Recordatorio de Pago - ${editing.mes_periodo || 'Cuota'}`,
                                         initialAsunto: `Cobro Pendiente: ${editing.mes_periodo || 'Mensualidad'}`,
-                                        initialMensaje: 'Estimado apoderado, le informamos que existen pagos pendientes. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.'
+                                        initialMensaje: `Estimado apoderado, le informamos que tiene un pago pendiente correspondiente a ${editing.mes_periodo || 'la mensualidad'} por un monto de ${fmt(Number(editing.monto))}, el cual venció el ${format(new Date(editing.fecha_vencimiento), 'dd/MM/yyyy')}. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.`
                                     })
                                 }}
                             >
@@ -1012,7 +1012,7 @@ export default function PagosPage() {
                                 destinatarios: [{ nombre: `${apo.nombre} ${apo.apellido}`, email: apo.email || undefined, telefono: apo.telefono || undefined }],
                                 contexto: `Recordatorio de Pago - ${quickPay!.mes_periodo || 'Cuota'}`,
                                 initialAsunto: `Cobro Pendiente: ${quickPay!.mes_periodo || 'Mensualidad'}`,
-                                initialMensaje: 'Estimado apoderado, le informamos que existen pagos pendientes. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.'
+                                initialMensaje: `Estimado apoderado, le informamos que tiene un pago pendiente correspondiente a ${quickPay!.mes_periodo || 'la mensualidad'} por un monto de ${fmt(Number(quickPay!.monto))}, el cual venció el ${format(new Date(quickPay!.fecha_vencimiento), 'dd/MM/yyyy')}. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.`
                             })
                         }}
                     >
