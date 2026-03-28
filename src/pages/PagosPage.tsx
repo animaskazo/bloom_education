@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase, PagoApoderado, EstadoPago } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader, Modal, ConfirmDialog, EmptyState, EstadoBadge, Spinner } from '@/components/ui'
-import { Plus, Pencil, Trash2, CreditCard, Search, Filter, CheckCircle, ChevronDown, ChevronRight, User, GraduationCap, DollarSign, Wand2, AlertTriangle, FileText } from 'lucide-react'
-import { format } from 'date-fns'
+import { Plus, Pencil, Trash2, CreditCard, Search, Filter, CheckCircle, ChevronDown, ChevronRight, User, GraduationCap, DollarSign, Wand2, AlertTriangle, FileText, Download, ExternalLink, Calendar, Send } from 'lucide-react'
+import { format, isBefore, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { ModalEnviarEmail } from '@/components/ModalEnviarEmail'
+import { MensajeTarget } from '@/contexts/MensajeriaContext'
 
 const emptyForm = { apoderado_id:'', estudiante_id:'', concepto:'Mensualidad', monto:'85000', mes_periodo:'', fecha_vencimiento:'', estado:'pendiente' as EstadoPago, metodo_pago:'', notas:'', comprobante_url:'' }
 const CONCEPTOS = ['Mensualidad','Matrícula','Material Didáctico','Alimentación','Extracurricular','Otro']
@@ -37,27 +39,59 @@ export default function PagosPage() {
   const [expandedCursos, setExpandedCursos] = useState<string[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [emailModal, setEmailModal] = useState<{ 
+    destinatarios: MensajeTarget[], 
+    contexto: string,
+    initialAsunto?: string,
+    initialMensaje?: string
+  } | null>(null)
 
   const toggleCurso = (id: string) => setExpandedCursos(prev => prev.includes(id) ? prev.filter(i => i!==id) : [...prev, id])
 
   const MESES_ES = ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+  const isVencido = (p: PagoApoderado | null) => {
+    if (!p || p.estado !== 'pendiente') return false
+    const today = new Date().toLocaleDateString('sv-SE')
+    return p.fecha_vencimiento < today
+  }
+
+  const getDeudores = (items: PagoApoderado[]) => {
+    const debtorsMap = new Map<string, MensajeTarget>()
+    items.filter(isVencido).forEach(p => {
+        const apo = (p as any).apoderados
+        if (apo && (apo.email || apo.telefono)) {
+            debtorsMap.set(apo.id, {
+                nombre: `${apo.nombre} ${apo.apellido}`,
+                email: apo.email || undefined,
+                telefono: apo.telefono || undefined
+            })
+        }
+    })
+    return Array.from(debtorsMap.values())
+  }
 
   const toggleApod = (id: string) => setExpandedApod(prev => prev.includes(id) ? prev.filter(i => i!==id) : [...prev, id])
   const toggleEst = (id: string) => setExpandedEst(prev => prev.includes(id) ? prev.filter(i => i!==id) : [...prev, id])
 
   async function uploadComprobante(f: File) {
     const fileExt = f.name.split('.').pop()
+    if (!selectedEstablecimientoId) throw new Error('No hay establecimiento seleccionado')
     const fileName = `${crypto.randomUUID()}.${fileExt}`
-    const filePath = `${selectedEstablecimientoId}/${fileName}`
+    // Organizado por carpeta de comprobantes y luego por establecimiento
+    const filePath = `comprobantes/${selectedEstablecimientoId}/${fileName}`
 
     const { error: uploadError } = await supabase.storage
-      .from('pagos')
-      .upload(filePath, f)
+      .from('mi-bucket')
+      .upload(filePath, f, {
+        cacheControl: '3600',
+        upsert: false
+      })
 
     if (uploadError) throw uploadError
 
     const { data } = supabase.storage
-      .from('pagos')
+      .from('mi-bucket')
       .getPublicUrl(filePath)
 
     return data.publicUrl
@@ -195,7 +229,7 @@ export default function PagosPage() {
     if (!selectedEstablecimientoId) return
     if (!silent) setLoading(true)
     const [{ data: pagos }, { data: apod }, { data: est }, { data: cur }] = await Promise.all([
-      supabase.from('pagos_apoderados').select('*, apoderados(nombre,apellido,rut), estudiantes(nombre,apellido,rut,curso_id)').eq('establecimiento_id', selectedEstablecimientoId).order('fecha_vencimiento'),
+      supabase.from('pagos_apoderados').select('*, apoderados(nombre,apellido,rut,email,telefono), estudiantes(nombre,apellido,rut,curso_id)').eq('establecimiento_id', selectedEstablecimientoId).order('fecha_vencimiento'),
       supabase.from('apoderados').select('id,nombre,apellido,rut').eq('establecimiento_id', selectedEstablecimientoId).order('apellido'),
       supabase.from('estudiantes').select('id,nombre,apellido,rut,curso_id').eq('estado','activo').eq('establecimiento_id', selectedEstablecimientoId).order('apellido'),
       supabase.from('cursos').select('id,nombre').eq('establecimiento_id', selectedEstablecimientoId).order('nombre')
@@ -291,8 +325,8 @@ export default function PagosPage() {
   const totals = {
     total: rows.reduce((a,r)=>a+Number(r.monto),0),
     pagado: rows.filter(r=>r.estado==='pagado').reduce((a,r)=>a+Number(r.monto),0),
-    pendiente: rows.filter(r=>r.estado==='pendiente').reduce((a,r)=>a+Number(r.monto),0),
-    vencido: rows.filter(r=>r.estado==='vencido').reduce((a,r)=>a+Number(r.monto),0),
+    pendiente: rows.filter(r=>r.estado==='pendiente' && !isVencido(r)).reduce((a,r)=>a+Number(r.monto),0),
+    vencido: rows.filter(r=>r.estado==='vencido' || isVencido(r)).reduce((a,r)=>a+Number(r.monto),0),
   }
   const fmt = (n:number) => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n)
 
@@ -401,6 +435,27 @@ export default function PagosPage() {
                     {['pendiente', 'pagado', 'vencido', 'anulado'].map(st => <option key={st} value={st}>{st.charAt(0).toUpperCase() + st.slice(1)}</option>)}
                 </select>
             )}
+            <button 
+              className="btn-primary-outline btn-sm animate-pulse shadow-brand-100 flex items-center gap-2"
+              onClick={() => {
+                  const items = rows
+                  const vencidos = items.filter(isVencido)
+                  if (vencidos.length === 0) return alert('No hay pagos vencidos actualmente.')
+                  
+                  const deudores = getDeudores(items)
+                  if (deudores.length === 0) return alert('Se encontraron pagos vencidos pero los apoderados no tienen e-mail ni teléfono registrados.')
+                  
+                  setEmailModal({
+                      destinatarios: deudores,
+                      contexto: 'Recordatorio Global de Pagos Pendientes',
+                      initialAsunto: 'Recordatorio de Mensualidades Pendientes',
+                      initialMensaje: 'Estimado apoderado, le informamos que existen pagos pendientes. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.'
+                  })
+              }}
+            >
+              <Send className="w-4 h-4" /> 
+              <span>Recordatorio Global ({rows.filter(isVencido).length})</span>
+            </button>
           </div>
         </div>
 
@@ -419,6 +474,27 @@ export default function PagosPage() {
                              <div className="w-2 h-6 bg-brand-500 rounded-full" />
                              <h3 className="font-bold text-slate-800 uppercase tracking-wider text-sm">{curso.nombre}</h3>
                              <span className="text-[10px] bg-white text-slate-500 px-2 py-0.5 rounded-full font-bold shadow-sm">{curso.alumnos.length} Alumnos</span>
+                             <button
+                                className="btn-ghost btn-sm flex items-center gap-1 text-brand-600 text-xs ml-2"
+                                onClick={e => {
+                                    e.stopPropagation()
+                                    const items = rows.filter(p => p.estudiante_id && estudiantes.find(est => est.id === p.estudiante_id && est.curso_id === curso.id))
+                                    const vencidos = items.filter(isVencido)
+                                    if (vencidos.length === 0) return alert('No hay pagos vencidos en este curso.')
+                                    
+                                    const deudores = getDeudores(items)
+                                    if (deudores.length === 0) return alert('Se encontraron pagos vencidos pero los apoderados no tienen e-mail ni teléfono registrados.')
+                                    
+                                    setEmailModal({
+                                        destinatarios: deudores,
+                                        contexto: `Recordatorio de Pago - ${curso.nombre}`,
+                                        initialAsunto: `Pendiente: ${curso.nombre}`,
+                                        initialMensaje: 'Estimado apoderado, le informamos que existen pagos pendientes. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.'
+                                    })
+                                }}
+                             >
+                                <Send className="w-3.5 h-3.5" /> Enviar aviso curso
+                             </button>
                           </div>
                           {expandedCursos.includes(curso.id) ? (
                             <ChevronDown className="w-5 h-5 text-slate-300"/>
@@ -431,7 +507,7 @@ export default function PagosPage() {
                        </div>
 
                        {expandedCursos.includes(curso.id) && (
-                        <div className="px-4 pb-4 animate-fade-in overflow-x-auto">
+                        <div className="p-6 animate-fade-in overflow-x-auto">
                           <table className="w-full border-collapse table-fixed">
                               <thead>
                                 <tr>
@@ -447,29 +523,30 @@ export default function PagosPage() {
                                     const payCount = alum.pagos.filter((p: any) => p?.estado === 'pagado').length;
                                     return (
                                       <tr key={alum.id} className="group hover:bg-slate-50/50 transition-colors">
-                                          <td className="py-3 px-4 border-b border-slate-50 truncate">
+                                          <td className="py-4 px-4 border-b border-slate-50 truncate">
                                             <div className="flex flex-col truncate">
                                                 <span className="text-sm font-semibold text-slate-700 capitalize truncate">{alum.nombre.toLowerCase()} {alum.apellido.toLowerCase()}</span>
                                                 <span className="text-[9px] text-slate-400 font-mono tracking-tighter uppercase">{alum.rut}</span>
                                             </div>
                                           </td>
                                           {alum.pagos.map((p: any, idx: number) => (
-                                            <td key={idx} className="py-3 px-1 border-b border-slate-50 text-center">
+                                            <td key={idx} className="py-4 px-1 border-b border-slate-50 text-center">
                                                 {!p ? (
                                                   <div className="w-7 h-7 mx-auto rounded-lg bg-slate-100/50 border border-dashed border-slate-200" title="No generado" />
                                                 ) : (
                                                   <div className="relative w-fit mx-auto">
-                                                    <button 
+                                                    <div 
                                                         onClick={() => p.estado === 'pendiente' ? setQuickPay(p) : openEdit(p)}
-                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shadow-sm
-                                                          ${p.estado === 'pagado' ? 'bg-emerald-500 text-white shadow-emerald-200' : 
-                                                            p.estado === 'vencido' ? 'bg-red-500 text-white shadow-red-100' : 
+                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shadow-sm cursor-pointer
+                                                          ${p.estado === 'pagado' ? 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600' : 
+                                                            isVencido(p) ? 'bg-red-500 text-white shadow-red-200 animate-pulse hover:bg-red-600' : 
+                                                            p.estado === 'vencido' ? 'bg-red-500 text-white shadow-red-100 hover:bg-red-600' : 
                                                             'bg-white border border-slate-200 text-slate-300 hover:border-brand-300 hover:text-brand-500'}
                                                         `}
-                                                        title={p.estado === 'pagado' ? `Pagado: ${p.fecha_pago} (${p.metodo_pago})` : `${MESES_ES[idx]}: ${p.estado.toUpperCase()}`}
+                                                        title={p.estado === 'pagado' ? `Pagado: ${p.fecha_pago} (${p.metodo_pago})` : isVencido(p) ? 'Pago VENCIDO' : `${MESES_ES[idx]}: ${p.estado.toUpperCase()}`}
                                                     >
                                                         {p.estado === 'pagado' ? <CheckCircle className="w-4 h-4"/> : <DollarSign className="w-4 h-4 opacity-40 group-hover:opacity-100"/>}
-                                                    </button>
+                                                    </div>
                                                     {p.comprobante_url && (
                                                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100">
                                                         <FileText className="w-2 h-2 text-brand-600" />
@@ -479,7 +556,7 @@ export default function PagosPage() {
                                                 )}
                                             </td>
                                           ))}
-                                          <td className="py-3 px-4 border-b border-slate-50 text-right">
+                                          <td className="py-4 px-4 border-b border-slate-50 text-right">
                                             <span className={`text-xs font-bold ${payCount === 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
                                                 {payCount}/10
                                             </span>
@@ -498,12 +575,12 @@ export default function PagosPage() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={CreditCard} title="Sin cobros" description="No hay registros de pago." action={<button className="btn-primary btn-sm" onClick={openAdd}><Plus className="w-3.5 h-3.5"/>Crear cobro</button>} />
         ) : (
-          <div className="p-2 space-y-3">
+          <div className="p-4 space-y-4">
             {Object.entries(groupedList).map(([apId, data]: [string, any]) => (
               <div key={apId} className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white hover:border-slate-200 transition-all">
                 {/* NIVEL 1: APODERADO */}
                 <div 
-                  className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${expandedApod.includes(apId) ? 'bg-slate-50/50' : 'hover:bg-slate-50/30'}`}
+                  className={`p-5 flex items-center justify-between cursor-pointer transition-colors ${expandedApod.includes(apId) ? 'bg-slate-50/50' : 'hover:bg-slate-50/30'}`}
                   onClick={() => toggleApod(apId)}
                 >
                   <div className="flex items-center gap-4">
@@ -529,12 +606,12 @@ export default function PagosPage() {
                 </div>
 
                 {expandedApod.includes(apId) && (
-                  <div className="p-4 pt-0 space-y-3 animate-fade-in">
+                  <div className="p-6 pt-0 space-y-4 animate-fade-in">
                     {Object.entries(data.estudiantes).map(([estId, estData]: [string, any]) => (
-                      <div key={estId} className="ml-6 border-l-2 border-slate-100 pl-4 space-y-2">
+                      <div key={estId} className="ml-6 border-l-2 border-slate-100 pl-6 space-y-3">
                         {/* NIVEL 2: ALUMNO */}
                         <div 
-                          className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors"
+                          className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors"
                           onClick={() => toggleEst(estId)}
                         >
                           <div className="flex items-center gap-3">
@@ -569,12 +646,24 @@ export default function PagosPage() {
                                     <td className="text-xs">{p.concepto}</td>
                                     <td className="font-bold text-xs">{fmt(Number(p.monto))}</td>
                                     <td className="text-[11px]">{format(new Date(p.fecha_vencimiento), 'dd/MM/yyyy')}</td>
-                                    <td><EstadoBadge estado={p.estado}/></td>
+                                    <td>
+                                      {isVencido(p) ? (
+                                        <span className="badge-red animate-pulse flex items-center gap-1 w-fit">
+                                          <AlertTriangle className="w-3 h-3"/> Vencido
+                                        </span>
+                                      ) : (
+                                        <EstadoBadge estado={p.estado}/>
+                                      )}
+                                    </td>
                                     <td className="text-center">
                                       {p.comprobante_url ? (
-                                        <a href={p.comprobante_url} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center p-1.5 bg-brand-50 text-brand-700 rounded-lg hover:bg-brand-100 transition-colors" title="Ver comprobante">
+                                        <button 
+                                          onClick={() => openEdit(p)}
+                                          className="inline-flex items-center justify-center p-1.5 bg-brand-50 text-brand-700 rounded-lg hover:bg-brand-100 transition-colors" 
+                                          title="Ver comprobante"
+                                        >
                                           <FileText className="w-3.5 h-3.5" />
-                                        </a>
+                                        </button>
                                       ) : '—'}
                                     </td>
                                     <td>
@@ -602,128 +691,343 @@ export default function PagosPage() {
         )}
       </div>
 
-      <Modal open={modal!==null} onClose={() => setModal(null)} title={modal === 'add' ? 'Nuevo Cobro' : 'Editar Cobro'} size="lg">
-        <div className="p-6 grid grid-cols-2 gap-4">
-          {error && <div className="col-span-2 bg-red-50 text-red-700 text-sm px-3 py-2 rounded-xl border border-red-200">{error}</div>}
-          <div className="form-group col-span-2">
-            <label className="label">Apoderado</label>
-            <select className="input" value={form.apoderado_id} onChange={e => setForm({...form, apoderado_id: e.target.value})}>
-              <option value="">— Seleccionar apoderado —</option>
-              {apoderados.map(a => <option key={a.id} value={a.id}>{a.nombre} {a.apellido} — {a.rut}</option>)}
-            </select>
-          </div>
-          <div className="form-group col-span-2">
-            <label className="label">Alumno</label>
-            <select className="input" value={form.estudiante_id} onChange={e => setForm({...form, estudiante_id: e.target.value})}>
-              <option value="">— Seleccionar alumno —</option>
-              {estudiantes.map(e => <option key={e.id} value={e.id}>{e.nombre} {e.apellido}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="label">Concepto</label>
-            <select className="input" value={form.concepto} onChange={e => setForm({...form, concepto: e.target.value})}>
-              {CONCEPTOS.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="label">Período (ej: Marzo 2025)</label>
-            <input className="input" value={form.mes_periodo} onChange={e => setForm({...form, mes_periodo: e.target.value})} placeholder="Marzo 2025"/>
-          </div>
-          <div className="form-group">
-            <label className="label">Monto ($)</label>
-            <input className="input" type="number" value={form.monto} onChange={e => setForm({...form, monto: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label className="label">Fecha de Vencimiento</label>
-            <input className="input" type="date" value={form.fecha_vencimiento} onChange={e => setForm({...form, fecha_vencimiento: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label className="label">Estado</label>
-            <select className="input" value={form.estado} onChange={e => setForm({...form, estado: e.target.value as EstadoPago})}>
-              <option value="pendiente">Pendiente</option>
-              <option value="pagado">Pagado</option>
-              <option value="vencido">Vencido</option>
-              <option value="anulado">Anulado</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="label">Método de Pago</label>
-            <select className="input" value={form.metodo_pago} onChange={e => setForm({...form, metodo_pago: e.target.value})}>
-              <option value="">— Seleccionar —</option>
-              {METODOS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-          <div className="form-group col-span-2">
-            <label className="label">Notas</label>
-            <input className="input" value={form.notas} onChange={e => setForm({...form, notas: e.target.value})} placeholder="Observaciones opcionales"/>
-          </div>
-          <div className="form-group col-span-2">
-            <label className="label">Comprobante de Pago</label>
-            <div className="flex items-center gap-3">
-              <input 
-                type="file" 
-                className="hidden" 
-                id="file-upload" 
-                accept="image/*,.pdf"
-                onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
-              />
-              <label 
-                htmlFor="file-upload"
-                className="btn-secondary w-full justify-center cursor-pointer"
-              >
-                {file ? file.name : 'Seleccionar archivo'}
-              </label>
-              {form.comprobante_url && (
-                <a 
-                  href={form.comprobante_url} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="btn-ghost text-brand-600 font-bold"
-                >
-                  Ver actual
-                </a>
-              )}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">Sube una imagen o PDF del comprobante de transferencia o depósito.</p>
-          </div>
-          <div className="col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <button className="btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-            <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
-          </div>
+      <Modal open={modal!==null} onClose={() => setModal(null)} title={editing?.estado === 'pagado' ? 'Detalle de Pago' : (modal === 'add' ? 'Nuevo Cobro' : 'Editar Cobro')} size="lg">
+        <div className="p-6">
+          {editing?.estado === 'pagado' ? (
+              <div className="space-y-6">
+                  {/* Ficha de Pago (Read Only) */}
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex flex-col md:flex-row gap-6">
+                      <div className="flex-1 space-y-4">
+                          <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                                  <CheckCircle className="w-6 h-6" />
+                              </div>
+                              <div>
+                                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Monto Pagado</p>
+                                  <p className="text-2xl font-black text-slate-800 leading-none">{fmt(Number(editing.monto))}</p>
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-x-8 gap-y-4 pt-4 border-t border-slate-200/60">
+                              <div>
+                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
+                                     <GraduationCap className="w-3 h-3" /> Alumno
+                                 </p>
+                                 <p className="text-sm font-bold text-slate-700 capitalize">
+                                     {editing.estudiantes?.nombre.toLowerCase()} {editing.estudiantes?.apellido.toLowerCase()}
+                                 </p>
+                              </div>
+                              <div>
+                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
+                                     <Calendar className="w-3 h-3" /> Período
+                                 </p>
+                                 <p className="text-sm font-bold text-slate-700">
+                                     {editing.mes_periodo || 'Mensualidad'}
+                                 </p>
+                              </div>
+                              <div>
+                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1 flex items-center gap-1 text-purple-500">
+                                     <CreditCard className="w-3 h-3" /> Método
+                                 </p>
+                                 <p className="text-sm font-semibold text-slate-600">
+                                     {editing.metodo_pago || 'No especificado'}
+                                 </p>
+                              </div>
+                              <div>
+                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
+                                     <Calendar className="w-3 h-3" /> Fecha de Pago
+                                 </p>
+                                 <p className="text-sm font-semibold text-slate-600">
+                                     {editing.fecha_pago ? format(new Date(editing.fecha_pago), 'dd/MM/yyyy') : '—'}
+                                 </p>
+                              </div>
+                          </div>
+                          
+                          {editing.notas && (
+                              <div className="pt-4 border-t border-slate-200/60 font-medium text-xs text-slate-400 italic">
+                                  "{editing.notas}"
+                              </div>
+                          )}
+                      </div>
+
+                      {/* Preview en el mismo modal */}
+                      <div className="w-full md:w-64 flex flex-col gap-2">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Comprobante de Pago</p>
+                          {editing.comprobante_url ? (
+                              <a 
+                                href={editing.comprobante_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="aspect-[3/4] rounded-xl bg-slate-900 border border-slate-200 overflow-hidden cursor-pointer group relative shadow-inner block"
+                              >
+                                  {editing.comprobante_url.toLowerCase().endsWith('.pdf') ? (
+                                      <iframe src={editing.comprobante_url} className="w-full h-full border-0 pointer-events-none" title="Comprobante PDF" />
+                                  ) : (
+                                      <img src={editing.comprobante_url} alt="Comprobante" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                  )}
+                                  <div className="absolute inset-0 bg-brand-500/0 group-hover:bg-brand-500/20 flex flex-col items-center justify-center transition-all">
+                                      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 scale-0 group-hover:scale-110 transition-transform shadow-lg border border-white/30">
+                                          <ExternalLink className="w-5 h-5 shadow-sm" />
+                                      </div>
+                                      <p className="text-white text-[10px] font-black mt-2 opacity-0 group-hover:opacity-100 uppercase tracking-widest drop-shadow-md">Abrir pantalla completa</p>
+                                  </div>
+                              </a>
+                          ) : (
+                              <div className="aspect-[3/4] rounded-xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 gap-2">
+                                  <FileText className="w-8 h-8" />
+                                  <p className="text-[10px] font-bold uppercase">Sin imagen</p>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <button className="btn-ghost text-slate-400 hover:text-brand-600 hover:bg-brand-50 text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-2" onClick={() => {
+                            const e = editing;
+                            setModal(null);
+                            setTimeout(() => {
+                                setForm({ apoderado_id:e.apoderado_id, estudiante_id:e.estudiante_id, concepto:e.concepto, monto:e.monto.toString(), mes_periodo:e.mes_periodo??'', fecha_vencimiento:e.fecha_vencimiento, estado:e.estado, metodo_pago:e.metodo_pago??'', notas:e.notas??'', comprobante_url:e.comprobante_url??'' })
+                                setEditing(e);
+                                setModal('edit');
+                                setEditing({...e, estado: 'pendiente'});
+                            }, 10);
+                        }}>
+                            <Pencil className="w-3.5 h-3.5" /> 
+                            <span>Editar datos</span>
+                        </button>
+                        {isVencido(editing) && (
+                            <button 
+                                className="btn-ghost text-red-500 hover:bg-red-50 text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-2"
+                                onClick={() => {
+                                    const apo = (editing as any).apoderados
+                                    if (!apo || (!apo.email && !apo.telefono)) return alert('Apoderado no tiene datos de contacto')
+                                    setEmailModal({
+                                        destinatarios: [{ nombre: `${apo.nombre} ${apo.apellido}`, email: apo.email || undefined, telefono: apo.telefono || undefined }],
+                                        contexto: `Recordatorio de Pago - ${editing.mes_periodo || 'Cuota'}`,
+                                        initialAsunto: `Cobro Pendiente: ${editing.mes_periodo || 'Mensualidad'}`,
+                                        initialMensaje: 'Estimado apoderado, le informamos que existen pagos pendientes. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.'
+                                    })
+                                }}
+                            >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>Enviar recordatorio</span>
+                            </button>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                          <button className="btn-secondary" onClick={() => setModal(null)}>Cerrar</button>
+                          {editing.comprobante_url && (
+                              <a href={editing.comprobante_url} download target="_blank" rel="noreferrer" className="btn-primary">
+                                  <Download className="w-4 h-4 mr-2" /> Descargar
+                              </a>
+                          )}
+                      </div>
+                  </div>
+              </div>
+          ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {error && <div className="col-span-2 bg-red-50 text-red-700 text-sm px-3 py-2 rounded-xl border border-red-200">{error}</div>}
+                <div className="form-group col-span-2">
+                  <label className="label">Apoderado</label>
+                  <select className="input" value={form.apoderado_id} onChange={e => setForm({...form, apoderado_id: e.target.value})}>
+                    <option value="">— Seleccionar apoderado —</option>
+                    {apoderados.map(a => <option key={a.id} value={a.id}>{a.nombre} {a.apellido} — {a.rut}</option>)}
+                  </select>
+                </div>
+                <div className="form-group col-span-2">
+                  <label className="label">Alumno</label>
+                  <select className="input" value={form.estudiante_id} onChange={e => setForm({...form, estudiante_id: e.target.value})}>
+                    <option value="">— Seleccionar alumno —</option>
+                    {estudiantes.map(e => <option key={e.id} value={e.id}>{e.nombre} {e.apellido}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="label">Concepto</label>
+                  <select className="input" value={form.concepto} onChange={e => setForm({...form, concepto: e.target.value})}>
+                    {CONCEPTOS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="label">Período (ej: Marzo 2025)</label>
+                  <input className="input" value={form.mes_periodo} onChange={e => setForm({...form, mes_periodo: e.target.value})} placeholder="Marzo 2025"/>
+                </div>
+                <div className="form-group">
+                  <label className="label">Monto ($)</label>
+                  <input className="input" type="number" value={form.monto} onChange={e => setForm({...form, monto: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="label">Fecha de Vencimiento</label>
+                  <input className="input" type="date" value={form.fecha_vencimiento} onChange={e => setForm({...form, fecha_vencimiento: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="label">Estado</label>
+                  <select className="input" value={form.estado} onChange={e => setForm({...form, estado: e.target.value as EstadoPago})}>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="pagado">Pagado</option>
+                    <option value="vencido">Vencido</option>
+                    <option value="anulado">Anulado</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="label">Método de Pago</label>
+                  <select className="input" value={form.metodo_pago} onChange={e => setForm({...form, metodo_pago: e.target.value})}>
+                    <option value="">— Seleccionar —</option>
+                    {METODOS.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="form-group col-span-2">
+                  <label className="label">Notas</label>
+                  <input className="input" value={form.notas} onChange={e => setForm({...form, notas: e.target.value})} placeholder="Observaciones opcionales"/>
+                </div>
+                <div className="form-group col-span-2">
+                  <label className="label">Comprobante de Pago</label>
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        id="file-upload" 
+                        accept="image/*,.pdf"
+                        onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
+                      />
+                      <label 
+                        htmlFor="file-upload" 
+                        className="btn-secondary w-full justify-center cursor-pointer"
+                      >
+                        {file ? file.name : (form.comprobante_url ? 'Cambiar archivo' : 'Seleccionar archivo')}
+                      </label>
+                      {(file || form.comprobante_url) && (
+                        <button 
+                          type="button" 
+                          onClick={() => { setFile(null); setForm({...form, comprobante_url:''}) }} 
+                          className="absolute -right-2 -top-2 w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center border border-red-200 shadow-sm hover:bg-red-200 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    {form.comprobante_url && !file && (
+                      <div className="flex items-center gap-2">
+                          <div 
+                              className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-slate-400"
+                          >
+                              {form.comprobante_url.toLowerCase().endsWith('.pdf') ? (
+                                  <FileText className="w-5 h-5" />
+                              ) : (
+                                  <img src={form.comprobante_url} alt="Thumbnail" className="w-full h-full object-cover" />
+                              )}
+                          </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Sube una imagen o PDF del comprobante de transferencia o depósito.</p>
+                </div>
+                <div className="col-span-2 flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button className="btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
+                  <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+                </div>
+              </div>
+          )}
         </div>
       </Modal>
-      <Modal open={quickPay!==null} onClose={() => setQuickPay(null)} title="Registrar Pago" size="sm">
-        <div className="p-6 space-y-4">
-          <div className="text-center pb-2">
-            <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">{quickPay?.mes_periodo}</p>
-            <p className="text-2xl font-black text-slate-800">{fmt(Number(quickPay?.monto || 0))}</p>
+
+      <Modal open={quickPay!==null} onClose={() => setQuickPay(null)} title="Registrar Pago" size="md">
+        <div className="p-8 space-y-8">
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-brand-100 text-brand-600 flex items-center justify-center flex-shrink-0">
+                    <CreditCard className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Monto del cobro</p>
+                    <p className="text-2xl font-black text-slate-800 leading-none">{fmt(Number(quickPay?.monto || 0))}</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200/60">
+                <div>
+                   <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
+                       <GraduationCap className="w-3 h-3" /> Alumno
+                   </p>
+                   <p className="text-xs font-bold text-slate-700 capitalize">
+                       {(quickPay as any)?.estudiantes?.nombre.toLowerCase()} {(quickPay as any)?.estudiantes?.apellido.toLowerCase()}
+                   </p>
+                </div>
+                <div>
+                   <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1 flex items-center gap-1">
+                       <Calendar className="w-3 h-3" /> Período
+                   </p>
+                   <p className="text-xs font-bold text-slate-700">
+                       {quickPay?.mes_periodo || 'Mensualidad'}
+                   </p>
+                </div>
+            </div>
           </div>
           
-          <div className="form-group">
-            <label className="label">Método de Pago</label>
-            <select className="input" value={quickPayData.metodo_pago} onChange={e => setQuickPayData({...quickPayData, metodo_pago: e.target.value})}>
-              {METODOS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
+          <div className="space-y-4">
+              <div className="form-group">
+                <label className="label">Método de Pago</label>
+                <select className="input bg-white" value={quickPayData.metodo_pago} onChange={e => setQuickPayData({...quickPayData, metodo_pago: e.target.value})}>
+                  {METODOS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="label">Fecha de Pago</label>
+                <input className="input bg-white" type="date" value={quickPayData.fecha_pago} onChange={e => setQuickPayData({...quickPayData, fecha_pago: e.target.value})} />
+              </div>
+
+              <div className="form-group">
+                <label className="label">Comprobante (Opcional)</label>
+                <div className="relative">
+                    <input 
+                      type="file" 
+                      id="quick-file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
+                    />
+                    <label 
+                        htmlFor="quick-file"
+                        className="flex items-center gap-2 w-full p-2.5 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-brand-300 transition-colors text-xs font-medium text-slate-600"
+                    >
+                        <FileText className="w-4 h-4 text-slate-400" />
+                        <span className="truncate flex-1">{file ? file.name : 'Sube una foto o PDF'}</span>
+                    </label>
+                </div>
+              </div>
           </div>
 
-          <div className="form-group">
-            <label className="label">Fecha de Pago</label>
-            <input className="input" type="date" value={quickPayData.fecha_pago} onChange={e => setQuickPayData({...quickPayData, fecha_pago: e.target.value})} />
-          </div>
-
-          <div className="form-group">
-            <label className="label">Comprobante (Opcional)</label>
-            <input 
-              type="file" 
-              accept="image/*,.pdf"
-              className="text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer"
-              onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2 pt-4">
-            <button className="btn-primary w-full py-3" onClick={handleQuickPay} disabled={saving}>{saving ? 'Procesando...' : 'Confirmar Pago'}</button>
-            <button className="btn-ghost text-slate-400 text-xs" onClick={() => setQuickPay(null)}>Cancelar</button>
+          <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+            <div>
+                {isVencido(quickPay!) && (
+                    <button 
+                        className="btn-ghost text-red-500 hover:bg-red-50 text-xs px-2 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+                        onClick={() => {
+                            const apo = (quickPay as any).apoderados
+                            if (!apo || (!apo.email && !apo.telefono)) return alert('Apoderado no tiene datos de contacto')
+                            setEmailModal({
+                                destinatarios: [{ nombre: `${apo.nombre} ${apo.apellido}`, email: apo.email || undefined, telefono: apo.telefono || undefined }],
+                                contexto: `Recordatorio de Pago - ${quickPay!.mes_periodo || 'Cuota'}`,
+                                initialAsunto: `Cobro Pendiente: ${quickPay!.mes_periodo || 'Mensualidad'}`,
+                                initialMensaje: 'Estimado apoderado, le informamos que existen pagos pendientes. Por favor ponerse al día o comunicarse con nosotros si tiene alguna dificultad.'
+                            })
+                        }}
+                    >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Enviar recordatorio</span>
+                    </button>
+                )}
+            </div>
+            <div className="flex gap-2">
+                <button className="btn-secondary" onClick={() => setQuickPay(null)}>Cancelar</button>
+                <button className="btn-primary" onClick={handleQuickPay} disabled={saving}>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {saving ? 'Procesando...' : 'Confirmar Pago'}
+                </button>
+            </div>
           </div>
         </div>
       </Modal>
@@ -746,6 +1050,17 @@ export default function PagosPage() {
         confirmLabel="Sí, eliminar todo"
         loading={clearing}
       />
+
+      {emailModal && (
+        <ModalEnviarEmail
+          open={!!emailModal}
+          onClose={() => setEmailModal(null)}
+          destinatarios={emailModal.destinatarios}
+          contexto={emailModal.contexto}
+          initialAsunto={emailModal.initialAsunto}
+          initialMensaje={emailModal.initialMensaje}
+        />
+      )}
 
       {success && (
         <div className="fixed bottom-8 right-8 z-50 bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-2xl flex items-center gap-3 font-medium text-sm animate-fade-in shadow-2xl max-w-xs border-l-4 border-l-emerald-500">

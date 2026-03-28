@@ -10,12 +10,14 @@ interface Props {
     contexto: string // ej: "Juan Pérez" | "Curso 1°A" | "todos los apoderados"
     onSuccess?: (res: any) => void
     initialCanal?: CanalMensaje | 'none'
+    initialAsunto?: string
+    initialMensaje?: string
 }
 
-export function ModalEnviarEmail({ open, onClose, destinatarios, contexto, onSuccess, initialCanal }: Props) {
+export function ModalEnviarEmail({ open, onClose, destinatarios, contexto, onSuccess, initialCanal, initialAsunto, initialMensaje }: Props) {
     const { enviarMensaje, isSending } = useMensajeriaGlobal()
-    const [asunto, setAsunto] = useState('')
-    const [mensaje, setMensaje] = useState('')
+    const [asunto, setAsunto] = useState(initialAsunto || '')
+    const [mensaje, setMensaje] = useState(initialMensaje || '')
     const [canal, setCanal] = useState<CanalMensaje>(initialCanal && initialCanal !== 'none' ? initialCanal as CanalMensaje : 'whatsapp')
     const [estado, setEstado] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
     const [resultado, setResultado] = useState('')
@@ -73,7 +75,7 @@ export function ModalEnviarEmail({ open, onClose, destinatarios, contexto, onSuc
                     <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <IconoScope className="w-4 h-4" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">Destinatarios</p>
                         <p className="text-sm font-semibold text-slate-700">{contexto}</p>
                         <p className="text-xs text-slate-400">
@@ -81,6 +83,21 @@ export function ModalEnviarEmail({ open, onClose, destinatarios, contexto, onSuc
                                 ? `${destinatarios[0].email || 'Sin email'} • ${destinatarios[0].telefono || 'Sin teléfono'}`
                                 : `${destinatarios.length} apoderados seleccionados`}
                         </p>
+                        
+                        {esMultiple && (
+                            <div className="mt-2 bg-white/50 border border-slate-200/50 rounded-lg p-2 max-h-24 overflow-y-auto custom-scrollbar">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                    {destinatarios.map((d, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 min-w-0">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />
+                                            <span className="text-[10px] text-slate-500 truncate font-medium">
+                                                {d.nombre} <span className="text-slate-300 font-normal">({d.email || d.telefono || 'Sin datos'})</span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
