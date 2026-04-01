@@ -14,6 +14,8 @@ import ProveedoresPage from '@/pages/ProveedoresPage'
 import ConfiguracionPage from '@/pages/ConfiguracionPage'
 import { Spinner } from '@/components/ui'
 import AsistenciaPage from './pages/AsistenciaPage'
+import LibretaPage from '@/pages/LibretaPage'
+import ApoderadoLibreta from '@/pages/ApoderadoLibreta'
 
 import EstablecimientosPage from '@/pages/EstablecimientosPage'
 
@@ -31,20 +33,23 @@ function LoadingScreen() {
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, perfilLoading } = useAuth()
   if (loading || perfilLoading) return <LoadingScreen />
-  return user ? <>{children}</> : <Navigate to="/login" replace />
+  
+  if (!user) return <Navigate to="/login" replace />
+
+  return <>{children}</>
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  if (loading) return <LoadingScreen />
-  // Si ya está logueado lo manda al dashboard
-  return !user ? <>{children}</> : <Navigate to="/dashboard" replace />
+  const { user, perfil, loading, perfilLoading } = useAuth()
+  if (loading || perfilLoading) return <LoadingScreen />
+  // Si ya está logueado lo manda a su portal correspondiente
+  return !user ? <>{children}</> : <Navigate to={perfil?.rol === 'apoderado' ? '/libreta-apoderado' : '/dashboard'} replace />
 }
 
 function AuthRedirect() {
-  const { user, loading } = useAuth()
-  if (loading) return <LoadingScreen />
-  return <Navigate to={user ? '/dashboard' : '/login'} replace />
+  const { user, perfil, loading, perfilLoading } = useAuth()
+  if (loading || perfilLoading) return <LoadingScreen />
+  return <Navigate to={user ? (perfil?.rol === 'apoderado' ? '/libreta-apoderado' : '/dashboard') : '/login'} replace />
 }
 
 function AppRoutes() {
@@ -54,13 +59,15 @@ function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
 
-      {/* Privadas — mismo prefijo que usa el Sidebar (/dashboard, /cursos, etc.) */}
+      {/* Privadas — AppLayout wrapper gestiona la distinción visual de layout */}
       <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/personal" element={<PersonalPage />} />
         <Route path="/estudiantes" element={<EstudiantesPage />} />
         <Route path="/cursos" element={<CursosPage />} />
         <Route path="/asistencia" element={<AsistenciaPage />} />
+        <Route path="/libreta" element={<LibretaPage />} />
+        <Route path="/libreta-apoderado" element={<ApoderadoLibreta />} />
         <Route path="/comunicados" element={<ComunicadosPage />} />
         <Route path="/padres" element={<PadresPage />} />
         <Route path="/pagos" element={<PagosPage />} />

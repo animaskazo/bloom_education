@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   GraduationCap, LayoutDashboard, Users, BookOpen,
   MessageSquare, Bell, CreditCard, Package,
-  LogOut, ChevronRight, Settings, Building2, CheckSquare
+  LogOut, ChevronRight, Settings, Building2, CheckSquare, Book, Heart
 } from 'lucide-react'
 
 const navItems = [
@@ -12,6 +12,8 @@ const navItems = [
   { to: '/estudiantes', icon: GraduationCap, label: 'Estudiantes' },
   { to: '/cursos', icon: BookOpen, label: 'Cursos' },
   { to: '/asistencia', icon: CheckSquare, label: 'Asistencia' },
+  { to: '/libreta', icon: Book, label: 'Libreta Diaria' },
+  { to: '/libreta-apoderado', icon: Heart, label: 'Portal Apoderado' },
   { to: '/comunicados', icon: MessageSquare, label: 'Comunicación Interna' },
   { to: '/padres', icon: Bell, label: 'Gestión de Apoderados' },
   { to: '/pagos', icon: CreditCard, label: 'Pagos Apoderados' },
@@ -24,11 +26,11 @@ const adminItems = [
 
 // ── Permisos por rol ────────────────────────────────────────────────────────
 const ROL_RUTAS: Record<string, string[]> = {
-  super_admin: ['/dashboard', '/establecimientos', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  direccion: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  profesor: ['/dashboard', '/cursos', '/asistencia', '/comunicados', '/padres'],
-  administrativo: ['/dashboard', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos'],
-  apoderado: ['/dashboard', '/padres', '/pagos'],
+  super_admin: ['/dashboard', '/establecimientos', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/libreta-apoderado', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  direccion: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/libreta-apoderado', '/comunicados', '/padres', '/pagos', '/proveedores'],
+  profesor: ['/dashboard', '/cursos', '/asistencia', '/libreta', '/comunicados', '/padres'],
+  administrativo: ['/dashboard', '/estudiantes', '/asistencia', '/libreta', '/comunicados', '/padres', '/pagos'],
+  apoderado: ['/libreta-apoderado', '/pagos'],
 }
 
 const ROL_LABELS: Record<string, string> = {
@@ -55,7 +57,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   async function handleSignOut() {
     await signOut()
-    navigate('/login')
+    window.location.href = '/login'
   }
 
   // Mientras el perfil no ha cargado, no filtramos — esperamos

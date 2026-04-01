@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPerfilLoading(true)
 
         const { data, error } = await supabase
-          .from('personal')
+          .from('perfiles')
           .select('*')
           .eq('id', session.user.id)
           .single()
@@ -89,7 +89,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      // Proactive local state clearing
+      setSession(null)
+      setUser(null)
+      setPerfil(null)
+      setSelectedEstablecimientoId(null)
+      perfilRef.current = null
+      lastUserIdRef.current = null
+    }
   }
 
   return (

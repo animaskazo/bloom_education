@@ -24,8 +24,19 @@ export type Database = {
       establecimientos: { Row: Establecimiento; Insert: Omit<Establecimiento, 'id' | 'created_at'>; Update: Partial<Establecimiento> }
       asistencia: { Row: Asistencia; Insert: Omit<Asistencia, 'id' | 'created_at'>; Update: Partial<Asistencia> }
       comunicados_envios: { Row: ComunicadoEnvio; Insert: Omit<ComunicadoEnvio, 'id' | 'created_at'>; Update: Partial<ComunicadoEnvio> }
+      libreta_configuracion: { Row: LibretaConfig; Insert: Omit<LibretaConfig, 'id' | 'created_at'>; Update: Partial<LibretaConfig> }
+      libreta_diaria: { Row: LibretaDiaria; Insert: Omit<LibretaDiaria, 'id' | 'created_at'>; Update: Partial<LibretaDiaria> }
+      estudiante_apoderado: { Row: EstudianteApoderado; Insert: Omit<EstudianteApoderado, 'id'>; Update: Partial<EstudianteApoderado> }
     }
   }
+}
+
+export interface EstudianteApoderado {
+  id: string
+  apoderado_id: string
+  estudiante_id: string
+  parentesco?: string
+  es_titular: boolean
 }
 
 export type UserRole = 'super_admin' | 'direccion' | 'profesor' | 'administrativo' | 'apoderado'
@@ -221,5 +232,27 @@ export interface Asistencia {
   fecha: string
   estado: EstadoAsistencia
   justificacion?: string
+  created_at: string
+}
+
+export interface LibretaConfig {
+  id: string
+  establecimiento_id: string
+  pregunta: string
+  opciones: string[]
+  permite_comentario: boolean
+  orden: number
+  estado: 'activo' | 'inactivo'
+  created_at: string
+}
+
+export interface LibretaDiaria {
+  id: string
+  estudiante_id: string
+  fecha: string
+  registrado_por: string
+  respuestas: Record<string, { r: string; c?: string }>
+  comentario_general?: string
+  establecimiento_id: string
   created_at: string
 }

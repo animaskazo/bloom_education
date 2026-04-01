@@ -448,7 +448,7 @@ export default function LandingPage() {
 
           <div className="lp-hero-actions">
             <button className="lp-btn-primary" style={{ backgroundColor: 'var(--lp-ink)', boxShadow: 'none' }} onClick={() => navigate('/login')}>
-              Prueba la demo
+              Ingresa a la Demo
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
           </div>
