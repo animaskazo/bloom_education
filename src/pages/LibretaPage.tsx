@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { format, addDays, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { useNavigate } from 'react-router-dom'
 
 export default function LibretaPage() {
   const { perfil, selectedEstablecimientoId } = useAuth()
@@ -139,27 +140,35 @@ export default function LibretaPage() {
     setConfig(data ?? [])
   }
 
+  const navigate = useNavigate()
+
   return (
     <div className="space-y-5 animate-fade-in pb-20">
       <PageHeader
         title="Libreta de Comunicaciones"
         subtitle="Registro de actividad diaria del alumno"
         action={
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="flex bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
              <button 
               onClick={() => setActiveTab('registro')} 
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'registro' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'registro' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'}`}
              >
                <Book className="w-3.5 h-3.5"/> Registro
              </button>
              {canConfig && (
                <button 
                 onClick={() => setActiveTab('config')} 
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'config' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'config' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'}`}
                >
                  <Settings className="w-3.5 h-3.5"/> Configuración
                </button>
              )}
+             <button 
+              onClick={() => navigate('/registro-movil')} 
+              className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-brand-600 bg-brand-50 hover:bg-brand-100 border border-brand-200"
+             >
+               <User className="w-3.5 h-3.5"/> Modo Celular
+             </button>
           </div>
         }
       />

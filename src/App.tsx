@@ -19,6 +19,8 @@ import ApoderadoLibreta from '@/pages/ApoderadoLibreta'
 
 import EstablecimientosPage from '@/pages/EstablecimientosPage'
 
+import RegistroMovilPage from '@/pages/RegistroMovilPage'
+
 function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -28,6 +30,12 @@ function LoadingScreen() {
       </div>
     </div>
   )
+}
+
+function getInitialRoute(rol?: string) {
+  if (rol === 'apoderado') return '/libreta-apoderado'
+  if (rol === 'profesor') return '/registro-movil'
+  return '/dashboard'
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -42,14 +50,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, perfil, loading, perfilLoading } = useAuth()
   if (loading || perfilLoading) return <LoadingScreen />
-  // Si ya está logueado lo manda a su portal correspondiente
-  return !user ? <>{children}</> : <Navigate to={perfil?.rol === 'apoderado' ? '/libreta-apoderado' : '/dashboard'} replace />
+  return !user ? <>{children}</> : <Navigate to={getInitialRoute(perfil?.rol)} replace />
 }
 
 function AuthRedirect() {
   const { user, perfil, loading, perfilLoading } = useAuth()
   if (loading || perfilLoading) return <LoadingScreen />
-  return <Navigate to={user ? (perfil?.rol === 'apoderado' ? '/libreta-apoderado' : '/dashboard') : '/login'} replace />
+  return <Navigate to={user ? getInitialRoute(perfil?.rol) : '/login'} replace />
 }
 
 function AppRoutes() {
@@ -68,6 +75,7 @@ function AppRoutes() {
         <Route path="/asistencia" element={<AsistenciaPage />} />
         <Route path="/libreta" element={<LibretaPage />} />
         <Route path="/libreta-apoderado" element={<ApoderadoLibreta />} />
+        <Route path="/registro-movil" element={<RegistroMovilPage />} />
         <Route path="/comunicados" element={<ComunicadosPage />} />
         <Route path="/padres" element={<PadresPage />} />
         <Route path="/pagos" element={<PagosPage />} />

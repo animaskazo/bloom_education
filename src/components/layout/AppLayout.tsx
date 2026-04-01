@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useAuth } from '@/hooks/useAuth'
@@ -7,13 +7,15 @@ import { useAuth } from '@/hooks/useAuth'
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const { perfil } = useAuth()
+  const location = useLocation()
   
   const isApoderado = perfil?.rol === 'apoderado'
+  const isMobileView = location.pathname === '/registro-movil'
 
-  if (isApoderado) {
+  if (isApoderado || isMobileView) {
     return (
       <div className="flex bg-slate-50 min-h-screen w-full">
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto w-full max-w-none p-0">
           <Outlet />
         </main>
       </div>
