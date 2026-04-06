@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { StatCard } from '@/components/ui'
 import { Users, GraduationCap, BookOpen, CreditCard, MessageSquare, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react'
-import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LabelList } from 'recharts'
 
 interface Stats {
   personal: number
@@ -96,7 +96,7 @@ export default function DashboardPage() {
       const pData = Object.entries(courses).map(([k, v]) => ({ name: k, value: v }))
       setPieData(pData)
 
-      setStats({
+      const finalStats = {
         personal: personal.count ?? 0,
         estudiantes: countEst,
         cursos: cursos.count ?? 0,
@@ -108,41 +108,15 @@ export default function DashboardPage() {
         pendienteMes: penMes,
         gastosMes: gasMes,
         balanceNeto: recMes - gasMes
-      })
+      }
+      setStats(finalStats)
 
-      // Procesar datos para el gráfico
-      const data = MESES.map((mes, idx) => {
-        const mesNombre = MESES_FULL[idx]
-        const pagadoEnMes = pagos.data
-          ?.filter(p => p.mes_periodo?.includes(mesNombre) && p.estado === 'pagado')
-          .reduce((sum, p) => sum + Number(p.monto), 0) ?? 0
-
-        return {
-          mes,
-          proyectado: proyectadoMensual,
-          recaudado: pagadoEnMes
-        }
-      })
-      setChartData(data)
       const chart = MESES.map((m, i) => ({
         name: m,
         recaudado: pagos.data?.filter(p => p.estado === 'pagado' && p.mes_periodo?.includes(MESES_FULL[i])).reduce((s, p) => s + Number(p.monto), 0) ?? 0,
         proyectado: proyectadoMensual
       }))
       setChartData(chart)
-      setStats({
-        personal: personal.count ?? 0,
-        estudiantes: countEst,
-        cursos: cursos.count ?? 0,
-        pagosPendientes: pendientes,
-        pagosVencidos: vencidos,
-        comunicados: comunicados.count ?? 0,
-        valorMensualidad: valorMens,
-        recaudadoMes: recMes,
-        pendienteMes: penMes,
-        gastosMes: gasMes,
-        balanceNeto: recMes - gasMes
-      })
       setLoading(false)
     }
     load()
@@ -186,7 +160,7 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#061224ff' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#061224ff' }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                   <Tooltip
                     formatter={(v: any) => fmt(v)}
@@ -194,7 +168,9 @@ export default function DashboardPage() {
                     contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                   />
                   <Bar dataKey="proyectado" name="Proyectado" fill="#d2e2ecff" radius={[4, 4, 0, 0]} barSize={20} />
-                  <Bar dataKey="recaudado" name="Recaudado Real" fill="#12ac52ff" radius={[4, 4, 0, 0]} barSize={40} style={{ transform: 'translateX(-10px)' }} />
+                  <Bar dataKey="recaudado" name="Recaudado Real" fill="#12ac52ff" radius={[4, 4, 0, 0]} barSize={40} style={{ transform: 'translateX(-10px)' }}>
+                    <LabelList dataKey="name" position="top" style={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} />
+                  </Bar>
                 </ComposedChart>
               </ResponsiveContainer>
             )}

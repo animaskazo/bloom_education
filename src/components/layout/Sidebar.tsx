@@ -18,6 +18,7 @@ const navItems = [
   { to: '/padres', icon: Bell, label: 'Gestión de Apoderados' },
   { to: '/pagos', icon: CreditCard, label: 'Pagos Apoderados' },
   { to: '/proveedores', icon: Package, label: 'Pagos Proveedores' },
+  { to: '/calendario', icon: Bell, label: 'Calendario' },
 ]
 
 const adminItems = [
@@ -26,11 +27,11 @@ const adminItems = [
 
 // ── Permisos por rol ────────────────────────────────────────────────────────
 const ROL_RUTAS: Record<string, string[]> = {
-  super_admin: ['/dashboard', '/establecimientos', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/libreta-apoderado', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  direccion: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/libreta-apoderado', '/comunicados', '/padres', '/pagos', '/proveedores'],
-  profesor: ['/dashboard', '/cursos', '/asistencia', '/libreta', '/comunicados', '/padres'],
-  administrativo: ['/dashboard', '/estudiantes', '/asistencia', '/libreta', '/comunicados', '/padres', '/pagos'],
-  apoderado: ['/libreta-apoderado', '/pagos'],
+  super_admin: ['/dashboard', '/establecimientos', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/libreta-apoderado', '/comunicados', '/padres', '/pagos', '/proveedores', '/calendario'],
+  direccion: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/comunicados', '/padres', '/pagos', '/proveedores', '/calendario'],
+  profesor: ['/dashboard', '/cursos', '/asistencia', '/libreta', '/comunicados', '/padres', '/calendario'],
+  administrativo: ['/dashboard', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos', '/calendario'],
+  apoderado: ['/libreta-apoderado', '/pagos', '/calendario'],
 }
 
 const ROL_LABELS: Record<string, string> = {

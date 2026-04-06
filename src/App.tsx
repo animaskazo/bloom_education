@@ -20,6 +20,7 @@ import ApoderadoLibreta from '@/pages/ApoderadoLibreta'
 import EstablecimientosPage from '@/pages/EstablecimientosPage'
 
 import RegistroMovilPage from '@/pages/RegistroMovilPage'
+import CalendarioPage from '@/pages/CalendarioPage'
 
 function LoadingScreen() {
   return (
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="/proveedores" element={<ProveedoresPage />} />
         <Route path="/configuracion" element={<ConfiguracionPage />} />
         <Route path="/establecimientos" element={<EstablecimientosPage />} />
+        <Route path="/calendario" element={<CalendarioPage />} />
       </Route>
 
       {/* Cualquier ruta desconocida */}
