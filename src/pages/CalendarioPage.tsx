@@ -235,24 +235,42 @@ export default function CalendarioPage() {
         </div>
 
         <div className="w-full xl:w-96 space-y-6">
-          <div className="card p-8 bg-slate-900 text-white rounded-[32px] shadow-2xl relative overflow-hidden group min-h-[400px]">
+          <div className="card p-8 bg-white border border-slate-100 rounded-[32px] shadow-xl relative overflow-hidden min-h-[400px]">
             <div className="relative z-10">
-              <h3 className="text-xl font-black mb-1 text-brand-400 capitalize">
+              <h3 className="text-xl font-black mb-1 text-slate-800 capitalize">
                 {selectedDate ? format(selectedDate, "eeee d 'de' MMMM", { locale: es }) : 'Selecciona un día'}
               </h3>
               <div className="w-8 h-1 bg-brand-500 rounded-full mb-8" />
               <div className="space-y-4">
                 {selectedDate && eventos.filter(e => isSameDay(parseISO(e.fecha), selectedDate)).map(e => (
-                  <div key={e.id} onClick={() => openEditModal(e)} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all cursor-pointer">
+                  <div 
+                    key={e.id} onClick={() => openEditModal(e)} 
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-lg hover:-translate-y-0.5
+                      ${e.destinatarios === 'staff' ? 'bg-indigo-50 border-indigo-100' : 
+                        e.destinatarios === 'apoderados' ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}
+                    `}
+                  >
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-[8px] font-black uppercase bg-white/10 px-2 py-0.5 rounded-full">{e.destinatarios}</span>
-                      {e.hora_inicio && <span className="text-[10px] text-slate-400">{e.hora_inicio.substring(0, 5)}</span>}
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full
+                        ${e.destinatarios === 'staff' ? 'bg-indigo-100 text-indigo-700' : 
+                          e.destinatarios === 'apoderados' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}
+                      `}>{e.destinatarios}</span>
+                      {e.hora_inicio && (
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                          <Clock className="w-3 h-3"/>
+                          {e.hora_inicio.substring(0, 5)}
+                        </div>
+                      )}
                     </div>
-                    <h4 className="font-bold text-sm uppercase">{e.titulo}</h4>
+                    <h4 className="font-bold text-sm text-slate-800 uppercase tracking-tight">{e.titulo}</h4>
+                    {e.descripcion && <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">{e.descripcion}</p>}
                   </div>
                 ))}
                 {selectedDate && eventos.filter(e => isSameDay(parseISO(e.fecha), selectedDate)).length === 0 && (
-                  <p className="text-center text-slate-500 text-sm italic py-12">No hay actividades</p>
+                  <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                    <CalendarIcon className="w-12 h-12 text-slate-300 mb-4" />
+                    <p className="text-center text-slate-400 text-sm italic">No hay actividades</p>
+                  </div>
                 )}
               </div>
             </div>
