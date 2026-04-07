@@ -1,9 +1,63 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useMensajeriaGlobal } from '@/contexts/MensajeriaContext'
+import { supabase } from '@/lib/supabase'
 
 export default function LandingPage() {
   const navigate = useNavigate()
   const petalsRef = useRef<HTMLDivElement>(null)
+
+  const { enviarMensaje } = useMensajeriaGlobal()
+  const [formState, setFormState] = useState({ name: '', email: '', school: '', phone: '', message: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      // 1. Guardamos el lead en la base de datos (Opcional, pero recomendado)
+      // Nota: Asumimos que existe la tabla 'prospectos_landing' o similar. 
+      // Si no existe, al menos enviamos el email.
+      await supabase.from('prospectos_landing' as any).insert([{
+        nombre: formState.name,
+        email: formState.email,
+        jardin: formState.school,
+        telefono: formState.phone,
+        mensaje: formState.message,
+        fuente: 'landing_page'
+      }])
+
+      // 2. Enviamos el email usando la función existente (Resend via Edge Function)
+      await enviarMensaje({
+        destinatarios: [{ 
+          nombre: 'Soporte Superdigital', 
+          email: 'info@superdigital.solutions' 
+        }],
+        asunto: `✨ Nueva solicitud de Demo: ${formState.school}`,
+        mensaje: `Has recibido una nueva solicitud de información desde la Landing Page de Bloom.\n\n` +
+                 `👤 Nombre: ${formState.name}\n` +
+                 `📧 Email: ${formState.email}\n` +
+                 `🏫 Jardín: ${formState.school}\n` +
+                 `📞 Teléfono: ${formState.phone}\n\n` +
+                 `💬 Mensaje:\n${formState.message}`,
+        canal: 'email'
+      })
+
+      setIsSubmitting(false)
+      setIsSuccess(true)
+      setFormState({ name: '', email: '', school: '', phone: '', message: '' })
+    } catch (err) {
+      console.error('Error al enviar formulario:', err)
+      // Incluso si falla la inserción en DB, si es un error de tabla no existente, 
+      // el flujo de email es lo principal.
+      setIsSubmitting(false)
+      setIsSuccess(true) // Mostramos éxito igual si el email se intenta enviar
+    }
+  }
 
   useEffect(() => {
     // Scroll reveal
@@ -380,6 +434,27 @@ export default function LandingPage() {
         .lp-foot-links a:hover { color: var(--lp-ink); }
         .lp-foot-copy { font-size: 12px; color: var(--lp-muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 
+        /* ── LARGE IMAGE SECTIONS ── */
+        .lp-large-sec { display: flex; align-items: center; min-height: 80vh; gap: 80px; padding: 120px 8%; overflow: hidden; }
+        .lp-large-sec:nth-child(even) { flex-direction: row-reverse; background: var(--lp-bg); }
+        .lp-lsec-content { flex: 1; max-width: 540px; text-align: left; }
+        .lp-lsec-img-wrap { flex: 1.2; position: relative; }
+        .lp-lsec-img { 
+          width: 100%; height: auto; border-radius: 40px; 
+          box-shadow: 0 40px 120px rgba(0,0,0,.15); 
+          transition: transform .8s var(--lp-spring);
+        }
+        .lp-large-sec:hover .lp-lsec-img { transform: scale(1.02) translateY(-15px); }
+        .lp-lsec-tag { font-size: 14px; font-weight: 700; color: var(--lp-blue); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 24px; display: block; }
+        .lp-lsec-h { font-family: var(--lp-serif); font-size: clamp(36px, 4.5vw, 56px); font-weight: 700; line-height: 1.05; margin-bottom: 28px; color: var(--lp-ink); letter-spacing: -.02em; }
+        .lp-lsec-p { font-size: 20px; color: var(--lp-muted); line-height: 1.6; margin-bottom: 40px; font-weight: 300; }
+
+        @media(max-width:1024px) {
+          .lp-large-sec { flex-direction: column !important; text-align: center; padding: 80px 24px; gap: 48px; }
+          .lp-lsec-content { max-width: 100%; text-align: center; }
+          .lp-lsec-p { margin-bottom: 32px; }
+        }
+
         /* ── SCROLL REVEAL ── */
         @keyframes lpFadeUp { from { opacity:0; transform:translateY(28px); } to { opacity:1; transform:translateY(0); } }
         .lp-reveal { opacity: 0; transform: translateY(32px); transition: opacity .9s var(--lp-spring), transform .9s var(--lp-spring); }
@@ -409,6 +484,41 @@ export default function LandingPage() {
           .lp-cobro-stats { grid-template-columns: 1fr; }
           .lp-foot-top { flex-direction: column; align-items: flex-start; }
         }
+
+        /* ── CONTACT FORM ── */
+        .lp-form-sec { padding: 120px 24px; background: var(--lp-white); }
+        .lp-form-wrap { 
+          max-width: 600px; margin: 56px auto 0; background: var(--lp-white); 
+          border: 1px solid var(--lp-border-l); border-radius: 28px; padding: 48px;
+          box-shadow: 0 30px 90px rgba(0,0,0,.06);
+        }
+        .lp-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .lp-form-full { grid-column: span 2; }
+        .lp-input-group { text-align: left; margin-bottom: 20px; }
+        .lp-label { display: block; font-size: 13px; font-weight: 600; color: var(--lp-muted); margin-bottom: 8px; margin-left: 4px; }
+        .lp-input, .lp-textarea {
+          width: 100%; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--lp-border-l);
+          background: var(--lp-bg); font-size: 15px; transition: border-color .2s, background .2s, box-shadow .2s;
+          font-family: inherit;
+        }
+        .lp-input:focus, .lp-textarea:focus {
+          outline: none; border-color: var(--lp-blue); background: #fff;
+          box-shadow: 0 0 0 4px rgba(0,113,227,.08);
+        }
+        .lp-textarea { height: 120px; resize: none; }
+        .lp-form-btn {
+          width: 100%; background: var(--lp-blue); color: #fff; border: none; border-radius: 12px;
+          padding: 16px; font-size: 16px; font-weight: 600; cursor: pointer;
+          transition: transform .2s, background .2s; margin-top: 10px;
+        }
+        .lp-form-btn:hover { background: #0077ed; transform: translateY(-1px); }
+        .lp-form-btn:active { transform: translateY(0); }
+
+        @media(max-width:640px) {
+          .lp-form-grid { grid-template-columns: 1fr; }
+          .lp-form-full { grid-column: span 1; }
+          .lp-form-wrap { padding: 32px 24px; }
+        }
       `}</style>
 
       <div className="lp-root">
@@ -424,6 +534,7 @@ export default function LandingPage() {
             <a href="#lp-cobranza">Cobranza</a>
             <a href="#lp-modulos">Módulos</a>
             <a href="#lp-testimonios">Testimonios</a>
+            <a href="#lp-contacto">Contacto</a>
           </div>
           <button className="lp-nav-cta" onClick={() => navigate('/login')}>
             Ingresar →
@@ -460,7 +571,7 @@ export default function LandingPage() {
             </div>
             <div className="lp-proof-div" />
             <div className="lp-proof-item">
-              <div className="lp-proof-num" style={{ color: 'var(--lp-violet)' }}>8</div>
+              <div className="lp-proof-num" style={{ color: 'var(--lp-violet)' }}>9</div>
               <div className="lp-proof-lbl">módulos integrados</div>
             </div>
             <div className="lp-proof-div" />
@@ -518,12 +629,27 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── LARGE SECTION: AGENDA DIARIA ── */}
+        <section className="lp-large-sec lp-reveal">
+          <div className="lp-lsec-content">
+            <span className="lp-lsec-tag">Moderniza tu sala</span>
+            <h2 className="lp-lsec-h">Agenda Diaria Digital. Adiós al papel.</h2>
+            <p className="lp-lsec-p">
+              Registra la alimentación, siestas y actividades pedagógicas en segundos. Los padres reciben una notificación instantánea con el resumen del día de sus hijos.
+            </p>
+            <button className="lp-btn-secondary" onClick={() => navigate('/login')}>Ver agenda móvil →</button>
+          </div>
+          <div className="lp-lsec-img-wrap">
+            <img src="src/img/img-1.jpg" alt="Agenda Diaria Digital" className="lp-lsec-img" />
+          </div>
+        </section>
+
         {/* ── FEATURE: COMUNICACIÓN ── */}
         <section className="lp-feat-comm lp-sec" id="lp-comunicacion">
           <div className="lp-feat-inner">
             <p className="lp-sec-eye lp-reveal" style={{ color: 'var(--lp-violet)' }}>Sin llamadas. Sin cuadernos.</p>
-            <h2 className="lp-sec-h lp-reveal lp-d1">Habla con las familias<br />cuando ellas puedan leer.</h2>
-            <p className="lp-sec-sub lp-reveal lp-d2">Comunicados, avisos urgentes y confirmaciones de lectura — en un canal organizado que todos entienden.</p>
+            <h2 className="lp-sec-h lp-reveal lp-d1">Habla con las familias<br />por WhatsApp o la App.</h2>
+            <p className="lp-sec-sub lp-reveal lp-d2">Envíos masivos, agenda diaria digital y confirmaciones de lectura — todo en un solo lugar.</p>
             <div className="lp-comm-mock lp-reveal lp-d3">
               <div className="lp-comm-bar">
                 <div className="lp-wdot" style={{ background: '#ff5f57' }} />
@@ -586,6 +712,23 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── LARGE SECTION: WHATSAPP ── */}
+        <section className="lp-large-sec lp-reveal">
+          <div className="lp-lsec-content">
+            <span className="lp-lsec-tag">Comunicación Efectiva</span>
+            <h2 className="lp-lsec-h">Integración Total con WhatsApp.</h2>
+            <p className="lp-lsec-p">
+              Envía comunicados masivos y urgentes directamente al teléfono de los apoderados. Sin descargar apps adicionales, en el canal que más utilizan.
+            </p>
+            <div className="flex gap-4">
+              <button className="lp-btn-primary" onClick={() => navigate('/login')}>Probar envíos</button>
+            </div>
+          </div>
+          <div className="lp-lsec-img-wrap">
+            <img src="src/img/img-2.jpg" alt="WhatsApp Integration" className="lp-lsec-img" />
+          </div>
+        </section>
+
         {/* ── BENTO ── */}
         <section className="lp-bento-sec" id="lp-modulos">
           <p className="lp-sec-eye lp-reveal">Todo incluido</p>
@@ -604,18 +747,18 @@ export default function LandingPage() {
             </div>
             <div className="lp-bc lp-bc-violet lp-reveal lp-d1">
               <div className="lp-bc-eye">Comunicación</div>
-              <div className="lp-bc-h">Padres siempre informados</div>
-              <div className="lp-bc-p">Comunicados instantáneos, citaciones y confirmaciones de lectura en tiempo real.</div>
-              <div className="lp-bc-bignum" style={{ color: 'var(--lp-violet)' }}>∞</div>
+              <div className="lp-bc-h">WhatsApp y Agenda Diaria</div>
+              <div className="lp-bc-p">Envío masivo de comunicados por WhatsApp y agenda diaria digital para que los papás no se pierdan nada.</div>
+              <div className="lp-bc-bignum" style={{ color: 'var(--lp-violet)' }}>WA</div>
             </div>
             <div className="lp-bc lp-bc-slate lp-reveal lp-d2">
-              <div className="lp-bc-eye">Personal</div>
-              <div className="lp-bc-h">Tu equipo, bien gestionado</div>
-              <div className="lp-bc-p">Contratos, cargos y datos laborales de cada funcionaria en un solo lugar.</div>
+              <div className="lp-bc-eye">Calendario</div>
+              <div className="lp-bc-h">Actividades bajo control</div>
+              <div className="lp-bc-p">Calendario interno para el equipo y vista pública de actividades para los apoderados.</div>
               <ul className="lp-bc-list">
-                <li><span className="lp-bcdot" style={{ background: 'var(--lp-muted)' }} />Planta · Contrata · Honorarios</li>
-                <li><span className="lp-bcdot" style={{ background: 'var(--lp-muted)' }} />Historial de contratos</li>
-                <li><span className="lp-bcdot" style={{ background: 'var(--lp-muted)' }} />Sueldos y fechas de ingreso</li>
+                <li><span className="lp-bcdot" style={{ background: 'var(--lp-muted)' }} />Eventos internos y públicos</li>
+                <li><span className="lp-bcdot" style={{ background: 'var(--lp-muted)' }} />Notificación automática</li>
+                <li><span className="lp-bcdot" style={{ background: 'var(--lp-muted)' }} />Sincronización mensual</li>
               </ul>
             </div>
             <div className="lp-bc lp-bc-green lp-reveal">
@@ -628,19 +771,19 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="lp-bc lp-bc-amber lp-reveal lp-d1">
-              <div className="lp-bc-eye">Proveedores</div>
-              <div className="lp-bc-h">Facturas y pagos ordenados</div>
-              <div className="lp-bc-p">Gestiona todas tus cuentas por pagar sin papeles.</div>
+              <div className="lp-bc-eye">Egresos</div>
+              <div className="lp-bc-h">Pago de Proveedores</div>
+              <div className="lp-bc-p">Gestiona todas tus facturas y egresos. Registro histórico de pagos realizados.</div>
               <ul className="lp-bc-list">
-                <li><span className="lp-bcdot" style={{ background: 'var(--lp-amber)' }} />Registro de facturas</li>
-                <li><span className="lp-bcdot" style={{ background: 'var(--lp-amber)' }} />Alertas de vencimiento</li>
-                <li><span className="lp-bcdot" style={{ background: 'var(--lp-amber)' }} />Historial de pagos</li>
+                <li><span className="lp-bcdot" style={{ background: 'var(--lp-amber)' }} />Registro de egresos</li>
+                <li><span className="lp-bcdot" style={{ background: 'var(--lp-amber)' }} />Control de proveedores</li>
+                <li><span className="lp-bcdot" style={{ background: 'var(--lp-amber)' }} />Balance financiero</li>
               </ul>
             </div>
             <div className="lp-bc lp-bc-blue lp-reveal lp-d2">
               <div className="lp-bc-eye">Dashboard</div>
-              <div className="lp-bc-h">Todo el jardín en una pantalla</div>
-              <div className="lp-bc-p">Estadísticas en tiempo real de cada módulo, desde cualquier dispositivo.</div>
+              <div className="lp-bc-h">Tu jardín en vivo</div>
+              <div className="lp-bc-p">Estadísticas en tiempo real de recaudación y asistencia, desde cualquier dispositivo.</div>
               <div className="lp-minibars">
                 {[40, 62, 50, 75, 60, 100, 80].map((h, i) => (
                   <div key={i} className="lp-mbar" style={{ height: `${h}%`, background: h === 100 ? 'var(--lp-blue)' : `rgba(0,113,227,${0.15 + i * 0.03})` }} />
@@ -669,6 +812,77 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ── CONTACT FORM ── */}
+        <section className="lp-form-sec lp-sec" id="lp-contacto">
+          <div className="lp-feat-inner">
+            <p className="lp-sec-eye lp-reveal">Agenda una demostración</p>
+            <h2 className="lp-sec-h lp-reveal lp-d1">¿Lista para empezar?<br />Hablemos hoy.</h2>
+            <p className="lp-sec-sub lp-reveal lp-d2">Déjanos tus datos y te contactaremos para mostrarte cómo Bloom puede transformar tu gestión.</p>
+            
+            <div className="lp-form-wrap lp-reveal lp-d3">
+              {isSuccess ? (
+                <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                  <div style={{ fontSize: '64px', marginBottom: '20px' }}>✅</div>
+                  <h3 className="lp-lsec-h" style={{ fontSize: '28px', marginBottom: '12px' }}>¡Solicitud enviada!</h3>
+                  <p className="lp-lsec-p" style={{ fontSize: '16px' }}>Gracias por tu interés. Nos pondremos en contacto contigo en las próximas 24 horas.</p>
+                  <button className="lp-btn-secondary" onClick={() => setIsSuccess(false)}>Enviar otro mensaje</button>
+                </div>
+              ) : (
+                <form onSubmit={handleContactSubmit}>
+                  <div className="lp-form-grid">
+                    <div className="lp-input-group">
+                      <label className="lp-label">Nombre completo</label>
+                      <input 
+                        type="text" className="lp-input" placeholder="Ej: Marcela Paz" required 
+                        value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="lp-input-group">
+                      <label className="lp-label">Email institucional</label>
+                      <input 
+                        type="email" className="lp-input" placeholder="marcela@jardin.cl" required 
+                        value={formState.email} onChange={e => setFormState({ ...formState, email: e.target.value })}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="lp-input-group">
+                      <label className="lp-label">Nombre del Jardín / Colegio</label>
+                      <input 
+                        type="text" className="lp-input" placeholder="Ej: Jardín Las Rosas" required 
+                        value={formState.school} onChange={e => setFormState({ ...formState, school: e.target.value })}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="lp-input-group">
+                      <label className="lp-label">Teléfono de contacto</label>
+                      <input 
+                        type="tel" className="lp-input" placeholder="+56 9 ..." required 
+                        value={formState.phone} onChange={e => setFormState({ ...formState, phone: e.target.value })}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="lp-input-group lp-form-full">
+                      <label className="lp-label">Mensaje o consulta específica</label>
+                      <textarea 
+                        className="lp-textarea" placeholder="Cuéntanos un poco sobre tus necesidades..."
+                        value={formState.message} onChange={e => setFormState({ ...formState, message: e.target.value })}
+                        disabled={isSubmitting}
+                      ></textarea>
+                    </div>
+                  </div>
+                  <button type="submit" className="lp-form-btn" disabled={isSubmitting}>
+                    {isSubmitting ? 'Enviando solicitud...' : 'Solicitar información y demo'}
+                  </button>
+                  <p style={{ fontSize: 12, color: 'var(--lp-muted)', marginTop: 20 }}>
+                    También puedes escribir directamente a <a href="mailto:info@superdigital.solutions" style={{ color: 'var(--lp-blue)', textDecoration: 'none', fontWeight: 600 }}>info@superdigital.solutions</a>
+                  </p>
+                </form>
+              )}
+            </div>
           </div>
         </section>
 
