@@ -16,11 +16,10 @@ import { Spinner } from '@/components/ui'
 import AsistenciaPage from './pages/AsistenciaPage'
 import LibretaPage from '@/pages/LibretaPage'
 import ApoderadoLibreta from '@/pages/ApoderadoLibreta'
-
 import EstablecimientosPage from '@/pages/EstablecimientosPage'
-
-import RegistroMovilPage from '@/pages/RegistroMovilPage'
 import CalendarioPage from '@/pages/CalendarioPage'
+import RegistroMovilPage from '@/pages/mobile/RegistroMovilPage'
+import ApoderadoDashboard from '@/pages/mobile/ApoderadoDashboard'
 
 function LoadingScreen() {
   return (
@@ -34,7 +33,7 @@ function LoadingScreen() {
 }
 
 function getInitialRoute(rol?: string) {
-  if (rol === 'apoderado') return '/libreta-apoderado'
+  if (rol === 'apoderado') return '/apoderado'
   if (rol === 'profesor') return '/registro-movil'
   return '/dashboard'
 }
@@ -76,6 +75,7 @@ function AppRoutes() {
         <Route path="/asistencia" element={<AsistenciaPage />} />
         <Route path="/libreta" element={<LibretaPage />} />
         <Route path="/libreta-apoderado" element={<ApoderadoLibreta />} />
+        <Route path="/apoderado" element={<ApoderadoDashboard />} />
         <Route path="/registro-movil" element={<RegistroMovilPage />} />
         <Route path="/comunicados" element={<ComunicadosPage />} />
         <Route path="/padres" element={<PadresPage />} />
