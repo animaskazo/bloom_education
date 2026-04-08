@@ -393,12 +393,11 @@ export default function ApoderadoDashboard() {
                           colorClass = "bg-amber-50 text-amber-600";
                           tag = "Emoción";
                         } else {
-                          // Default tag (resumen de la pregunta)
                           tag = q.pregunta.split(' ')[0];
                         }
 
                         return (
-                          <StatusIcon key={q.id} icon={Icon} color={colorClass} tag={tag} label={res.r} />
+                          <StatusIcon key={q.id} icon={Icon} color={colorClass} tag={tag} label={res.r} hasComment={!!res.c} />
                         );
                       })}
                     </div>
@@ -406,38 +405,54 @@ export default function ApoderadoDashboard() {
 
                   {isExpanded && (
                     <div className="px-6 pb-6 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="h-px bg-slate-100 mb-6" />
+                      <div className="h-px bg-slate-100 mb-4" />
 
-                      <div className="space-y-6">
-                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">COMENTARIOS DE LA TÍA</h5>
-
-                        <div className="bg-[#F8F9FE] rounded-3xl p-5 space-y-4">
-                          {log.comentario_general ? (
-                            <div className="relative pl-4 border-l-2 border-blue-500">
-                              <p className="text-sm text-slate-600 leading-relaxed italic">"{log.comentario_general}"</p>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic">Sin comentarios adicionales hoy.</p>
-                          )}
+                      {/* Detailed Answers List */}
+                      <div className="mb-4">
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Detalle de Preguntas</h5>
+                        <div className="text-sm space-y-0">
+                          {configs.map(q => {
+                            const res = log.respuestas[q.id];
+                            if (!res) return null;
+                            return (
+                              <div key={`det-${q.id}`} className="py-2 border-b border-slate-50 last:border-0 flex flex-col justify-center">
+                                <div className="flex justify-between items-center gap-4">
+                                  <span className="text-slate-500 truncate">{q.pregunta}</span>
+                                  <span className="font-bold text-slate-800 flex-shrink-0">{res.r}</span>
+                                </div>
+                                {res.c && (
+                                  <p className="text-xs text-brand-600 italic mt-0.5 leading-snug tracking-tight">"{res.c}"</p>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
+                      </div>
 
-                        <div className="flex items-center justify-between pt-2">
-                          {isChecked ? (
-                            <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
-                              <CheckCircle2 className="w-4 h-4" /> Leído
-                            </div>
-                          ) : (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleConfirmReading(log.id); }}
-                              className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform"
-                            >
-                              Confirmar Lectura
-                            </button>
-                          )}
-                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider italic font-mono">
-                            ID: {log.id.substring(0, 6)}
-                          </span>
+                      {/* General Comment */}
+                      {log.comentario_general && (
+                        <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-100">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Comentario de la tía</p>
+                          <p className="text-sm text-slate-600 leading-snug italic">"{log.comentario_general}"</p>
                         </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2">
+                        {isChecked ? (
+                          <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
+                            <CheckCircle2 className="w-4 h-4" /> Leído
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleConfirmReading(log.id); }}
+                            className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform"
+                          >
+                            Confirmar Lectura
+                          </button>
+                        )}
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider italic font-mono">
+                          ID: {log.id.substring(0, 6)}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -612,14 +627,19 @@ export default function ApoderadoDashboard() {
   )
 }
 
-function StatusIcon({ icon: Icon, color, tag, label }: any) {
+function StatusIcon({ icon: Icon, color, tag, label, hasComment }: any) {
   return (
     <div className="flex flex-col items-center gap-1.5 flex-1 min-w-[64px]">
       <span className="text-[8px] font-black tracking-widest uppercase text-slate-400 truncate w-full text-center whitespace-nowrap">{tag}</span>
-      <div className={`w-11 h-11 rounded-xl flex flex-shrink-0 items-center justify-center ${color}`}>
+      <div className={`w-11 h-11 rounded-xl flex flex-shrink-0 items-center justify-center relative ${color}`}>
         <Icon className="w-5 h-5" />
+        {hasComment && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-brand-500 rounded-full border-2 border-white shadow-sm" />
+        )}
       </div>
-      <span className="text-[9px] font-black tracking-tighter uppercase whitespace-normal text-center leading-none opacity-80 h-6 flex items-center justify-center truncate w-full px-1">{label}</span>
+      <div className="flex flex-col items-center gap-1 w-full px-1">
+        <span className="text-[9px] font-black tracking-tighter uppercase whitespace-normal text-center leading-none opacity-80 flex items-center justify-center truncate w-full">{label}</span>
+      </div>
     </div>
   )
 }

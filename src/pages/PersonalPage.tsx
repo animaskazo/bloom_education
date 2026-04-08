@@ -82,7 +82,7 @@ export default function PersonalPage() {
         establecimiento_id: selectedEstablecimientoId
       }
 
-      // Si tiene clave -> Delegamos TODO a la función maestra SQL (RPC)
+      // Si tiene clave -> Creamos credenciales de acceso primero (RPC)
       if (form.password && form.password.length >= 6) {
         const { error: authErr } = await supabase.rpc('crear_acceso_staff', {
           p_rut: form.rut,
@@ -97,13 +97,13 @@ export default function PersonalPage() {
         })
         if (authErr) throw authErr
       } 
-      // Si NO tiene clave -> Guardado normal de ficha laboral
-      else {
-        const { error: e } = editing
-          ? await supabase.from('personal').update(payload).eq('id', editing.id)
-          : await supabase.from('personal').insert([payload])
-        if (e) throw e
-      }
+      
+      // Siempre guardamos la ficha laboral en 'personal'
+      const { error: e } = editing
+        ? await supabase.from('personal').update(payload).eq('id', editing.id)
+        : await supabase.from('personal').insert([payload])
+      if (e) throw e
+
 
       setModal(null)
       setSuccess(editing ? 'Personal actualizado correctamente' : 'Personal creado correctamente')
