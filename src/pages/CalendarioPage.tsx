@@ -93,8 +93,16 @@ export default function CalendarioPage() {
       .eq('establecimiento_id', perfil?.establecimiento_id)
       .order('hora_inicio', { ascending: true })
 
-    if (error) console.error(error)
-    else setEventos(data || [])
+    if (error) {
+      console.error(error)
+    } else {
+      let evs = data || []
+      // Frontend filter for apoderados to hide staff events
+      if (perfil?.rol === 'apoderado') {
+        evs = evs.filter((e: any) => e.destinatarios === 'todos' || e.destinatarios === 'apoderados')
+      }
+      setEventos(evs)
+    }
     setLoading(false)
   }
 
