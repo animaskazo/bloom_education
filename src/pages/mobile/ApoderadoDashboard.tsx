@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, Estudiante, EventoCalendario, LibretaDiaria, PagoApoderado, Curso } from '@/lib/supabase'
+import { supabase, Estudiante, LibretaDiaria, PagoApoderado, Curso, Comunicado } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { Spinner } from '@/components/ui'
 import { 
@@ -47,7 +47,7 @@ export default function ApoderadoDashboard() {
   const [eventosWeek, setEventosWeek] = useState<Evento[]>([])
   const [logs, setLogs] = useState<LibretaDiaria[]>([])
   const [pagos, setPagos] = useState<PagoApoderado[]>([])
-  const [latestComunicado, setLatestComunicado] = useState<any>(null)
+  const [latestComunicado, setLatestComunicado] = useState<Comunicado | null>(null)
   
   // UI State
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
@@ -125,6 +125,8 @@ export default function ApoderadoDashboard() {
   }
 
   async function loadStudentSpecificData(estId: string, apodId: string) {
+    if (!estId) return;
+
     // Libreta diaria
     const { data: logData } = await supabase
       .from('libreta_diaria')
@@ -134,12 +136,15 @@ export default function ApoderadoDashboard() {
       .limit(7)
     setLogs(logData || [])
 
-    // Pagos
+    // Pagos del alumno
+    // Nota: Filtramos por estudiante_id para traer exactamente los cobros de ese niño.
     const { data: payData } = await supabase
       .from('pagos_apoderados')
       .select('*')
       .eq('estudiante_id', estId)
       .order('fecha_vencimiento', { ascending: false })
+    
+    console.log(`Pagos cargados para ${estId}:`, payData);
     setPagos(payData || [])
   }
 
@@ -164,7 +169,7 @@ export default function ApoderadoDashboard() {
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
       <header className="px-6 pt-8 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-slate-100">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-slate-100 bg-slate-200">
              <img src={`https://ui-avatars.com/api/?name=${perfil?.nombre}+${perfil?.apellido}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
           </div>
           <div>
@@ -172,11 +177,39 @@ export default function ApoderadoDashboard() {
             <p className="text-xs font-semibold text-slate-400">Buenos días ✨</p>
           </div>
         </div>
-        <button className="relative w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-50">
+        <button className="relative w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-50 active:scale-95 transition-transform">
            <Bell className="w-5 h-5 text-blue-600" />
            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
         </button>
       </header>
+
+      {/* ── CHILDREN SELECTOR (Only if multiple) ────────────────────────── */}
+      {hijos.length > 1 && (
+        <section className="px-6 mb-4">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+            {hijos.map(h => {
+              const isActive = h.id === selectedHijoId;
+              return (
+                <button
+                  key={h.id}
+                  onClick={() => {
+                    setSelectedHijoId(h.id);
+                    loadStudentSpecificData(h.id, perfil?.id || '');
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-xs font-bold transition-all border-2 ${
+                    isActive 
+                      ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' 
+                      : 'bg-white border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  <Baby className="w-3.5 h-3.5" />
+                  {h.nombre} {h.apellido}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <main className="flex-1 overflow-y-auto px-6 space-y-8 scroll-smooth no-scrollbar">
         
@@ -308,29 +341,58 @@ export default function ApoderadoDashboard() {
 
         {/* ── PAYMENTS SECTION ──────────────────────────────────────────────── */}
         <section className="space-y-4">
-          <h2 className="text-lg font-black text-[#1E293B]">Información de Pago</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-[#1E293B]">Información de Pago</h2>
+            {pagos.filter(p => p.estado === 'pendiente').length > 0 && (
+               <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-md">
+                 {pagos.filter(p => p.estado === 'pendiente').length} PENDIENTES
+               </span>
+            )}
+          </div>
           <div className="card p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm space-y-4">
-             {pagos.slice(0, 3).map(pago => (
-               <div key={pago.id} className="flex items-center justify-between py-2 last:border-0 border-b border-slate-50">
-                  <div className="flex items-center gap-3">
-                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${pago.estado === 'pagado' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                        <CreditCard className="w-5 h-5" />
-                     </div>
-                     <div>
-                        <h4 className="font-bold text-sm text-slate-800">{pago.mes_periodo || 'Mensualidad'}</h4>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(new Date(pago.fecha_vencimiento), 'dd/MM/yyyy')}</p>
-                     </div>
+             {/* Resumen de Saldo */}
+             <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between border border-slate-100/50 mb-2">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total por pagar</p>
+                      <p className="text-lg font-black text-slate-800">
+                        ${pagos.filter(p => p.estado === 'pendiente').reduce((acc, p) => acc + Number(p.monto), 0).toLocaleString('es-CL')}
+                      </p>
+                   </div>
+                </div>
+                <div className="text-right">
+                   <ChevronRight className="w-5 h-5 text-slate-300" />
+                </div>
+             </div>
+
+             <div className="space-y-2">
+                {pagos.slice(0, 3).map(pago => (
+                  <div key={pago.id} className="flex items-center justify-between py-3 last:border-0 border-b border-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${pago.estado === 'pagado' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            <CreditCard className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-sm text-slate-800">{pago.mes_periodo || pago.concepto}</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(new Date(pago.fecha_vencimiento + 'T12:00:00'), 'dd MMM yyyy', { locale: es })}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-sm text-slate-800">${pago.monto.toLocaleString('es-CL')}</p>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${pago.estado === 'pagado' ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {pago.estado === 'pagado' ? 'PAGADO' : 'PENDIENTE'}
+                        </span>
+                      </div>
                   </div>
-                  <div className="text-right">
-                     <p className="font-black text-sm text-slate-800">${pago.monto.toLocaleString('es-CL')}</p>
-                     <span className={`text-[9px] font-black uppercase tracking-widest ${pago.estado === 'pagado' ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {pago.estado === 'pagado' ? 'PAGADO' : 'PENDIENTE'}
-                     </span>
-                  </div>
-               </div>
-             ))}
-             {pagos.length === 0 && <p className="text-center text-slate-300 italic text-sm py-4">Sin historial de pagos</p>}
-             <button className="w-full py-4 text-xs font-bold text-blue-600 border-t border-slate-50 mt-2">Ver Historial Completo</button>
+                ))}
+                {pagos.length === 0 && <p className="text-center text-slate-300 italic text-sm py-4">Sin historial de pagos</p>}
+             </div>
+             <button className="w-full py-4 text-xs font-bold text-blue-600 border-t border-slate-50 mt-2 hover:bg-slate-50 transition-colors rounded-b-xl">
+               Ver Historial Completo
+             </button>
           </div>
         </section>
 
