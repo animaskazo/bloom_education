@@ -15,7 +15,6 @@ import ConfiguracionPage from '@/pages/ConfiguracionPage'
 import { Spinner } from '@/components/ui'
 import AsistenciaPage from './pages/AsistenciaPage'
 import LibretaPage from '@/pages/LibretaPage'
-import ApoderadoLibreta from '@/pages/ApoderadoLibreta'
 import EstablecimientosPage from '@/pages/EstablecimientosPage'
 import CalendarioPage from '@/pages/CalendarioPage'
 import RegistroMovilPage from '@/pages/mobile/RegistroMovilPage'
@@ -74,7 +73,7 @@ function AppRoutes() {
         <Route path="/cursos" element={<CursosPage />} />
         <Route path="/asistencia" element={<AsistenciaPage />} />
         <Route path="/libreta" element={<LibretaPage />} />
-        <Route path="/libreta-apoderado" element={<ApoderadoLibreta />} />
+        <Route path="/libreta-apoderado" element={<Navigate to="/apoderado" replace />} />
         <Route path="/apoderado" element={<ApoderadoDashboard />} />
         <Route path="/registro-movil" element={<RegistroMovilPage />} />
         <Route path="/comunicados" element={<ComunicadosPage />} />

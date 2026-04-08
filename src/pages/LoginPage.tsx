@@ -79,7 +79,7 @@ export default function LoginPage() {
       return
     }
     
-    navigate(isApoderado ? '/libreta-apoderado' : '/dashboard')
+    navigate(isApoderado ? '/apoderado' : '/dashboard')
   }
 
   async function handleVerifyIdentity(e: FormEvent) {
