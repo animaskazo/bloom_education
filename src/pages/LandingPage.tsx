@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useMensajeriaGlobal } from '@/contexts/MensajeriaContext'
 import { supabase } from '@/lib/supabase'
 
+import img1 from '../img/img-1.jpg'
+import img2 from '../img/img-2.jpg'
+
 export default function LandingPage() {
   const navigate = useNavigate()
   const petalsRef = useRef<HTMLDivElement>(null)
@@ -33,17 +36,17 @@ export default function LandingPage() {
 
       // 2. Enviamos el email usando la función existente (Resend via Edge Function)
       await enviarMensaje({
-        destinatarios: [{ 
-          nombre: 'Soporte Superdigital', 
-          email: 'info@superdigital.solutions' 
+        destinatarios: [{
+          nombre: 'Soporte Superdigital',
+          email: 'info@superdigital.solutions'
         }],
         asunto: `✨ Nueva solicitud de Demo: ${formState.school}`,
         mensaje: `Has recibido una nueva solicitud de información desde la Landing Page de Bloom.\n\n` +
-                 `👤 Nombre: ${formState.name}\n` +
-                 `📧 Email: ${formState.email}\n` +
-                 `🏫 Jardín: ${formState.school}\n` +
-                 `📞 Teléfono: ${formState.phone}\n\n` +
-                 `💬 Mensaje:\n${formState.message}`,
+          `👤 Nombre: ${formState.name}\n` +
+          `📧 Email: ${formState.email}\n` +
+          `🏫 Jardín: ${formState.school}\n` +
+          `📞 Teléfono: ${formState.phone}\n\n` +
+          `💬 Mensaje:\n${formState.message}`,
         canal: 'email'
       })
 
@@ -640,7 +643,7 @@ export default function LandingPage() {
             <button className="lp-btn-secondary" onClick={() => navigate('/login')}>Ver agenda móvil →</button>
           </div>
           <div className="lp-lsec-img-wrap">
-            <img src="src/img/img-1.jpg" alt="Agenda Diaria Digital" className="lp-lsec-img" />
+            <img src={img1} alt="Agenda Diaria Digital" className="lp-lsec-img" />
           </div>
         </section>
 
@@ -725,7 +728,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="lp-lsec-img-wrap">
-            <img src="src/img/img-2.jpg" alt="WhatsApp Integration" className="lp-lsec-img" />
+            <img src={img2} alt="WhatsApp Integration" className="lp-lsec-img" />
           </div>
         </section>
 
@@ -821,7 +824,7 @@ export default function LandingPage() {
             <p className="lp-sec-eye lp-reveal">Agenda una demostración</p>
             <h2 className="lp-sec-h lp-reveal lp-d1">¿Lista para empezar?<br />Hablemos hoy.</h2>
             <p className="lp-sec-sub lp-reveal lp-d2">Déjanos tus datos y te contactaremos para mostrarte cómo Bloom puede transformar tu gestión.</p>
-            
+
             <div className="lp-form-wrap lp-reveal lp-d3">
               {isSuccess ? (
                 <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -835,39 +838,39 @@ export default function LandingPage() {
                   <div className="lp-form-grid">
                     <div className="lp-input-group">
                       <label className="lp-label">Nombre completo</label>
-                      <input 
-                        type="text" className="lp-input" placeholder="Ej: Marcela Paz" required 
+                      <input
+                        type="text" className="lp-input" placeholder="Ej: Marcela Paz" required
                         value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })}
                         disabled={isSubmitting}
                       />
                     </div>
                     <div className="lp-input-group">
                       <label className="lp-label">Email institucional</label>
-                      <input 
-                        type="email" className="lp-input" placeholder="marcela@jardin.cl" required 
+                      <input
+                        type="email" className="lp-input" placeholder="marcela@jardin.cl" required
                         value={formState.email} onChange={e => setFormState({ ...formState, email: e.target.value })}
                         disabled={isSubmitting}
                       />
                     </div>
                     <div className="lp-input-group">
                       <label className="lp-label">Nombre del Jardín / Colegio</label>
-                      <input 
-                        type="text" className="lp-input" placeholder="Ej: Jardín Las Rosas" required 
+                      <input
+                        type="text" className="lp-input" placeholder="Ej: Jardín Las Rosas" required
                         value={formState.school} onChange={e => setFormState({ ...formState, school: e.target.value })}
                         disabled={isSubmitting}
                       />
                     </div>
                     <div className="lp-input-group">
                       <label className="lp-label">Teléfono de contacto</label>
-                      <input 
-                        type="tel" className="lp-input" placeholder="+56 9 ..." required 
+                      <input
+                        type="tel" className="lp-input" placeholder="+56 9 ..." required
                         value={formState.phone} onChange={e => setFormState({ ...formState, phone: e.target.value })}
                         disabled={isSubmitting}
                       />
                     </div>
                     <div className="lp-input-group lp-form-full">
                       <label className="lp-label">Mensaje o consulta específica</label>
-                      <textarea 
+                      <textarea
                         className="lp-textarea" placeholder="Cuéntanos un poco sobre tus necesidades..."
                         value={formState.message} onChange={e => setFormState({ ...formState, message: e.target.value })}
                         disabled={isSubmitting}
