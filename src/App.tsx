@@ -19,6 +19,10 @@ import EstablecimientosPage from '@/pages/EstablecimientosPage'
 import CalendarioPage from '@/pages/CalendarioPage'
 import RegistroMovilPage from '@/pages/mobile/RegistroMovilPage'
 import ApoderadoDashboard from '@/pages/mobile/ApoderadoDashboard'
+import PrivacidadPage from '@/pages/PrivacidadPage'
+import TerminosPage from '@/pages/TerminosPage'
+import SoportePage from '@/pages/SoportePage'
+import ContactoPage from '@/pages/ContactoPage'
 
 function LoadingScreen() {
   return (
@@ -62,8 +66,14 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Pública */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+       <Route path="/" element={<LandingPage />} />
+       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+       
+       {/* Páginas Legales y Soporte */}
+       <Route path="/privacidad" element={<PrivacidadPage />} />
+       <Route path="/terminos" element={<TerminosPage />} />
+       <Route path="/soporte" element={<SoportePage />} />
+       <Route path="/contacto" element={<ContactoPage />} />
 
       {/* Privadas — AppLayout wrapper gestiona la distinción visual de layout */}
       <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>

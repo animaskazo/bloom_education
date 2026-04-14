@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useMensajeriaGlobal } from '@/contexts/MensajeriaContext'
 import { supabase } from '@/lib/supabase'
 
@@ -38,7 +38,7 @@ export default function LandingPage() {
       await enviarMensaje({
         destinatarios: [{
           nombre: 'Soporte Superdigital',
-          email: 'info@superdigital.solutions'
+          email: 'animaskazo@gmail.com'
         }],
         asunto: `✨ Nueva solicitud de Demo: ${formState.school}`,
         mensaje: `Has recibido una nueva solicitud de información desde la Landing Page de Bloom.\n\n` +
@@ -640,7 +640,6 @@ export default function LandingPage() {
             <p className="lp-lsec-p">
               Registra la alimentación, siestas y actividades pedagógicas en segundos. Los padres reciben una notificación instantánea con el resumen del día de sus hijos.
             </p>
-            <button className="lp-btn-secondary" onClick={() => navigate('/login')}>Ver agenda móvil →</button>
           </div>
           <div className="lp-lsec-img-wrap">
             <img src={img1} alt="Agenda Diaria Digital" className="lp-lsec-img" />
@@ -724,7 +723,6 @@ export default function LandingPage() {
               Envía comunicados masivos y urgentes directamente al teléfono de los apoderados. Sin descargar apps adicionales, en el canal que más utilizan.
             </p>
             <div className="flex gap-4">
-              <button className="lp-btn-primary" onClick={() => navigate('/login')}>Probar envíos</button>
             </div>
           </div>
           <div className="lp-lsec-img-wrap">
@@ -880,9 +878,7 @@ export default function LandingPage() {
                   <button type="submit" className="lp-form-btn" disabled={isSubmitting}>
                     {isSubmitting ? 'Enviando solicitud...' : 'Solicitar información y demo'}
                   </button>
-                  <p style={{ fontSize: 12, color: 'var(--lp-muted)', marginTop: 20 }}>
-                    También puedes escribir directamente a <a href="mailto:info@superdigital.solutions" style={{ color: 'var(--lp-blue)', textDecoration: 'none', fontWeight: 600 }}>info@superdigital.solutions</a>
-                  </p>
+
                 </form>
               )}
             </div>
@@ -914,10 +910,10 @@ export default function LandingPage() {
             <div className="lp-foot-top">
               <div className="lp-foot-brand">🌸 Bloom Education</div>
               <div className="lp-foot-links">
-                <a href="#">Privacidad</a>
-                <a href="#">Términos de uso</a>
-                <a href="#">Soporte</a>
-                <a href="#">Contacto</a>
+                <Link to="/privacidad">Privacidad</Link>
+                <Link to="/terminos">Términos de uso</Link>
+                <Link to="/soporte">Soporte</Link>
+                <Link to="/contacto">Contacto</Link>
               </div>
             </div>
             <div className="lp-foot-copy">
