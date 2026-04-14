@@ -20,17 +20,23 @@ export default function ContactoPage() {
     setIsSubmitting(true)
 
     try {
-      await supabase.from('prospectos_landing' as any).insert([{
-        nombre: formState.name,
-        email: formState.email,
-        jardin: formState.school,
-        telefono: formState.phone,
-        mensaje: formState.message,
-        fuente: 'contacto_page'
-      }])
+      // 1. Guardar en DB (Opcional)
+      try {
+        await supabase.from('prospectos_landing' as any).insert([{
+          nombre: formState.name,
+          email: formState.email,
+          jardin: formState.school,
+          telefono: formState.phone,
+          mensaje: formState.message,
+          fuente: 'contacto_page'
+        }])
+      } catch (dbErr) {
+        console.warn('DB Insert failed:', dbErr)
+      }
 
+      // 2. Enviar Email
       await enviarMensaje({
-        destinatarios: [{ nombre: 'Soporte Superdigital', email: 'info@superdigital.solutions' }],
+        destinatarios: [{ nombre: 'Soporte Bloom', email: 'animaskazo@gmail.com' }],
         asunto: `📞 Contacto desde Web: ${formState.school}`,
         mensaje: `Nueva consulta desde la página de contacto:\n\n` +
           `👤 Nombre: ${formState.name}\n` +
@@ -41,13 +47,13 @@ export default function ContactoPage() {
         canal: 'email'
       })
 
-      setIsSubmitting(false)
       setIsSuccess(true)
       setFormState({ name: '', email: '', school: '', phone: '', message: '' })
     } catch (err) {
       console.error(err)
-      setIsSubmitting(false)
       setIsSuccess(true)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 

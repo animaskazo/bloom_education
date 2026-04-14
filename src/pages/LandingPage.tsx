@@ -22,22 +22,25 @@ export default function LandingPage() {
     setError(null)
 
     try {
-      // 1. Guardamos el lead en la base de datos (Opcional, pero recomendado)
-      // Nota: Asumimos que existe la tabla 'prospectos_landing' o similar. 
-      // Si no existe, al menos enviamos el email.
-      await supabase.from('prospectos_landing' as any).insert([{
-        nombre: formState.name,
-        email: formState.email,
-        jardin: formState.school,
-        telefono: formState.phone,
-        mensaje: formState.message,
-        fuente: 'landing_page'
-      }])
+      // 1. Guardamos el lead en la base de datos (Opcional)
+      // Lo envolvemos en su propio try-catch para que no bloquee el envío de email
+      try {
+        await supabase.from('prospectos_landing' as any).insert([{
+          nombre: formState.name,
+          email: formState.email,
+          jardin: formState.school,
+          telefono: formState.phone,
+          mensaje: formState.message,
+          fuente: 'landing_page'
+        }])
+      } catch (dbErr) {
+        console.warn('DB Insert failed (optional):', dbErr)
+      }
 
       // 2. Enviamos el email usando la función existente (Resend via Edge Function)
       await enviarMensaje({
         destinatarios: [{
-          nombre: 'Soporte Superdigital',
+          nombre: 'Soporte Bloom',
           email: 'animaskazo@gmail.com'
         }],
         asunto: `✨ Nueva solicitud de Demo: ${formState.school}`,
@@ -50,15 +53,14 @@ export default function LandingPage() {
         canal: 'email'
       })
 
-      setIsSubmitting(false)
       setIsSuccess(true)
       setFormState({ name: '', email: '', school: '', phone: '', message: '' })
     } catch (err) {
       console.error('Error al enviar formulario:', err)
-      // Incluso si falla la inserción en DB, si es un error de tabla no existente, 
-      // el flujo de email es lo principal.
+      // Mostramos éxito igual para el usuario si el proceso llegó hasta aquí
+      setIsSuccess(true)
+    } finally {
       setIsSubmitting(false)
-      setIsSuccess(true) // Mostramos éxito igual si el email se intenta enviar
     }
   }
 
@@ -565,28 +567,6 @@ export default function LandingPage() {
               Ingresa a la Demo
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-          </div>
-
-          <div className="lp-hero-proof">
-            <div className="lp-proof-item">
-              <div className="lp-proof-num" style={{ color: 'var(--lp-pink)' }}>+240</div>
-              <div className="lp-proof-lbl">educadoras activas</div>
-            </div>
-            <div className="lp-proof-div" />
-            <div className="lp-proof-item">
-              <div className="lp-proof-num" style={{ color: 'var(--lp-violet)' }}>9</div>
-              <div className="lp-proof-lbl">módulos integrados</div>
-            </div>
-            <div className="lp-proof-div" />
-            <div className="lp-proof-item">
-              <div className="lp-proof-num" style={{ color: 'var(--lp-blue)' }}>30</div>
-              <div className="lp-proof-lbl">días gratis</div>
-            </div>
-            <div className="lp-proof-div" />
-            <div className="lp-proof-item">
-              <div className="lp-proof-num" style={{ color: 'var(--lp-green)' }}>94%</div>
-              <div className="lp-proof-lbl">satisfacción</div>
-            </div>
           </div>
         </section>
 

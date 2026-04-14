@@ -42,10 +42,15 @@ function getInitialRoute(rol?: string) {
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, perfilLoading } = useAuth()
+  const { user, perfil, loading, perfilLoading } = useAuth()
+  
+  // Mientras carga, mostramos pantalla de carga
   if (loading || perfilLoading) return <LoadingScreen />
   
-  if (!user) return <Navigate to="/login" replace />
+  // Si no hay usuario O no hay perfil (sesión inconsistente o expirada), al login
+  if (!user || !perfil) {
+    return <Navigate to="/login" replace />
+  }
 
   return <>{children}</>
 }
@@ -53,13 +58,22 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, perfil, loading, perfilLoading } = useAuth()
   if (loading || perfilLoading) return <LoadingScreen />
-  return !user ? <>{children}</> : <Navigate to={getInitialRoute(perfil?.rol)} replace />
+  
+  // Solo redirigimos a lo privado si tenemos AMBAS cosas: user y perfil
+  return (user && perfil) 
+    ? <Navigate to={getInitialRoute(perfil.rol)} replace /> 
+    : <>{children}</>
 }
 
 function AuthRedirect() {
   const { user, perfil, loading, perfilLoading } = useAuth()
   if (loading || perfilLoading) return <LoadingScreen />
-  return <Navigate to={user ? getInitialRoute(perfil?.rol) : '/login'} replace />
+  
+  if (user && perfil) {
+    return <Navigate to={getInitialRoute(perfil.rol)} replace />
+  }
+  
+  return <Navigate to="/login" replace />
 }
 
 function AppRoutes() {

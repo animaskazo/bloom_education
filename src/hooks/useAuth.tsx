@@ -28,53 +28,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const perfilRef     = useRef<Perfil | null>(null)
 
   useEffect(() => {
+    let initialized = false
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        console.log("Auth event:", event, !!session)
+        
         setSession(session)
         setUser(session?.user ?? null)
 
         if (!session?.user) {
           setPerfil(null)
-          setSelectedEstablecimientoId(null)
           perfilRef.current = null
           lastUserIdRef.current = null
-          setLoading(false)
+          setSelectedEstablecimientoId(null)
           setPerfilLoading(false)
+          setLoading(false)
+          initialized = true
           return
         }
 
-        // Si es el mismo usuario y ya tenemos perfil, no re-fetchear
-        if (lastUserIdRef.current === session.user.id && perfilRef.current !== null) {
+        // Fetch profile if needed
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || lastUserIdRef.current !== session.user.id) {
+          console.log("Fetching profile for user:", session.user.id)
+          lastUserIdRef.current = session.user.id
+          setPerfilLoading(true)
+
+          try {
+            console.log("Starting profile fetch with 8s timeout...")
+            
+            // Usamos Promise.race para evitar bloqueos infinitos
+            const { data, error } = await Promise.race([
+              supabase.from('perfiles').select('*').eq('id', session.user.id).single(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout de consulta (8s)")), 8000))
+            ]) as any
+
+            if (error) {
+               console.warn("Profile fetch error:", error)
+               setPerfil(null)
+               perfilRef.current = null
+            } else if (data) {
+              console.log("Profile loaded successfully:", data.rol)
+              setPerfil(data)
+              perfilRef.current = data
+              setSelectedEstablecimientoId(data.establecimiento_id)
+            } else {
+              console.warn("No profile data found")
+              setPerfil(null)
+              perfilRef.current = null
+            }
+          } catch (e: any) {
+            console.error("Critical Profile Error or Timeout:", e.message || e)
+            setPerfil(null)
+          } finally {
+            console.log("Finishing auth initialization states")
+            setPerfilLoading(false)
+            setLoading(false)
+            initialized = true
+          }
+        } else {
+          console.log("No profile fetch needed for this event")
           setLoading(false)
           setPerfilLoading(false)
-          return
+          initialized = true
         }
-
-        lastUserIdRef.current = session.user.id
-        setPerfilLoading(true)
-
-        const { data, error } = await supabase
-          .from('perfiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-
-        if (!error && data) {
-          setPerfil(data)
-          perfilRef.current = data
-          setSelectedEstablecimientoId(data.establecimiento_id)
-        }
-
-        setLoading(false)
-        setPerfilLoading(false)
       }
     )
 
-    // Timeout de seguridad
+    // Safety fallback
     const fallback = setTimeout(() => {
-      setLoading(false)
-      setPerfilLoading(false)
-    }, 4000)
+      if (!initialized) {
+        console.warn("Auth initializing fallback triggered")
+        setLoading(false)
+        setPerfilLoading(false)
+      }
+    }, 5000)
 
     return () => {
       subscription.unsubscribe()
