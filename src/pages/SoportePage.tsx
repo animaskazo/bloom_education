@@ -63,7 +63,7 @@ export default function SoportePage() {
             </div>
             <h3 className="text-lg font-bold mb-2">Correo Electrónico</h3>
             <p className="text-slate-500 text-sm mb-4">Respuesta en menos de 24 horas hábiles.</p>
-            <a href="mailto:info@bloom.digital-solutions-work" className="text-rose-500 font-semibold hover:underline">info@bloom.digital-solutions-work</a>
+            <a href="mailto:bloom@digital-solutions.work" className="text-rose-500 font-semibold hover:underline">bloom@digital-solutions.work</a>
           </div>
 
           <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow text-center">

@@ -41,7 +41,7 @@ export default function LandingPage() {
       await enviarMensaje({
         destinatarios: [{
           nombre: 'Soporte Bloom',
-          email: 'animaskazo@gmail.com'
+          email: 'bloom@digital-solutions.work'
         }],
         asunto: `✨ Nueva solicitud de Demo: ${formState.school}`,
         mensaje: `Has recibido una nueva solicitud de información desde la Landing Page de Bloom.\n\n` +
@@ -881,7 +881,7 @@ export default function LandingPage() {
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M10 5l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
           </div>
-          <p className="lp-cta-note">¿Preguntas? <a href="mailto:hola@bloom.education">Escríbenos →</a></p>
+          <p className="lp-cta-note">¿Preguntas? <a href="mailto:bloom@digital-solutions.work">Escríbenos →</a></p>
         </section>
 
         {/* ── FOOTER ── */}
@@ -897,7 +897,7 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="lp-foot-copy">
-              <span>Copyright © 2025 Bloom Education. Todos los derechos reservados. Hecho en Chile 🇨🇱</span>
+              <span>Copyright © 2026 Bloom Education. Todos los derechos reservados. Hecho en Chile 🇨🇱</span>
               <span>Santiago, Chile</span>
             </div>
           </div>

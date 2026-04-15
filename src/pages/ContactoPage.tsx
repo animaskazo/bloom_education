@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 export default function ContactoPage() {
   const navigate = useNavigate()
   const { enviarMensaje } = useMensajeriaGlobal()
-  
+
   const [formState, setFormState] = useState({ name: '', email: '', school: '', phone: '', message: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -36,7 +36,7 @@ export default function ContactoPage() {
 
       // 2. Enviar Email
       await enviarMensaje({
-        destinatarios: [{ nombre: 'Soporte Bloom', email: 'animaskazo@gmail.com' }],
+        destinatarios: [{ nombre: 'Soporte Bloom', email: 'bloom@digital-solutions.work' }],
         asunto: `📞 Contacto desde Web: ${formState.school}`,
         mensaje: `Nueva consulta desde la página de contacto:\n\n` +
           `👤 Nombre: ${formState.name}\n` +
@@ -96,7 +96,7 @@ export default function ContactoPage() {
               </div>
               <div>
                 <h4 className="font-bold">Email</h4>
-                <p className="text-slate-500 text-rose-500 font-medium">hola@bloom.education</p>
+                <p className="text-slate-500 text-rose-500 font-medium">bloom@digital-solutions.work</p>
               </div>
             </div>
           </div>
@@ -108,7 +108,7 @@ export default function ContactoPage() {
               <div className="text-6xl mb-6">✨</div>
               <h2 className="text-3xl font-bold mb-4">¡Mensaje Recibido!</h2>
               <p className="text-slate-500 mb-8">Te responderemos a la brevedad posible.</p>
-              <button 
+              <button
                 onClick={() => setIsSuccess(false)}
                 className="bg-slate-900 text-white px-8 py-3 rounded-full hover:bg-slate-800 transition-colors"
               >
@@ -120,46 +120,46 @@ export default function ContactoPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase ml-1">Nombre</label>
-                  <input 
+                  <input
                     type="text" required placeholder="Juana de la Hoz"
-                    value={formState.name} onChange={e => setFormState({...formState, name: e.target.value})}
+                    value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })}
                     className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase ml-1">Email</label>
-                  <input 
+                  <input
                     type="email" required placeholder="juanita@jardin.cl"
-                    value={formState.email} onChange={e => setFormState({...formState, email: e.target.value})}
+                    value={formState.email} onChange={e => setFormState({ ...formState, email: e.target.value })}
                     className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                   />
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-400 uppercase ml-1">Jardín / Institución</label>
-                <input 
+                <input
                   type="text" required placeholder="Jardín Infantil Los Girasoles"
-                  value={formState.school} onChange={e => setFormState({...formState, school: e.target.value})}
+                  value={formState.school} onChange={e => setFormState({ ...formState, school: e.target.value })}
                   className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-400 uppercase ml-1">Teléfono</label>
-                <input 
+                <input
                   type="tel" required placeholder="+56 9 ..."
-                  value={formState.phone} onChange={e => setFormState({...formState, phone: e.target.value})}
+                  value={formState.phone} onChange={e => setFormState({ ...formState, phone: e.target.value })}
                   className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-400 uppercase ml-1">¿En qué podemos ayudarte?</label>
-                <textarea 
+                <textarea
                   required placeholder="Cuéntanos un poco más sobre lo que buscas..."
-                  value={formState.message} onChange={e => setFormState({...formState, message: e.target.value})}
+                  value={formState.message} onChange={e => setFormState({ ...formState, message: e.target.value })}
                   className="w-full h-32 bg-white border border-slate-200 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none"
                 />
               </div>
-              <button 
+              <button
                 type="submit" disabled={isSubmitting}
                 className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold text-lg hover:bg-slate-800 transform active:scale-[0.98] transition-all disabled:opacity-50"
               >
