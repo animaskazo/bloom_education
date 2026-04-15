@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
-import { StatCard } from '@/components/ui'
-import { Users, GraduationCap, BookOpen, CreditCard, MessageSquare, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react'
+import { StatCard, Modal } from '@/components/ui'
+import { Users, GraduationCap, BookOpen, CreditCard, MessageSquare, TrendingUp, AlertCircle, CheckCircle, Calendar, Clock, Info } from 'lucide-react'
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LabelList } from 'recharts'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 interface Stats {
   personal: number
@@ -18,6 +20,16 @@ interface Stats {
   pendienteMes: number
   gastosMes: number
   balanceNeto: number
+}
+
+interface Evento {
+  id: string
+  titulo: string
+  descripcion: string
+  fecha: string
+  hora_inicio: string | null
+  tipo: string
+  destinatarios: string
 }
 
 const MESES = ['Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -42,6 +54,8 @@ export default function DashboardPage() {
   })
   const [chartData, setChartData] = useState<any[]>([])
   const [pieData, setPieData] = useState<any[]>([])
+  const [upcomingEvents, setUpcomingEvents] = useState<Evento[]>([])
+  const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -117,6 +131,18 @@ export default function DashboardPage() {
         proyectado: proyectadoMensual
       }))
       setChartData(chart)
+
+      // Fetch upcoming events
+      const { data: eventsData } = await supabase
+        .from('eventos_calendario')
+        .select('*')
+        .eq('establecimiento_id', selectedEstablecimientoId)
+        .gte('fecha', new Date().toISOString().split('T')[0])
+        .order('fecha', { ascending: true })
+        .limit(5)
+      
+      setUpcomingEvents(eventsData || [])
+
       setLoading(false)
     }
     load()
@@ -202,19 +228,56 @@ export default function DashboardPage() {
 
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Alertas */}
+        {/* Eventos */}
         <div className="card">
           <div className="card-header">
-            <h3 className="section-title">Alertas Importantes</h3>
-            <AlertCircle className="w-4 h-4 text-amber-500" />
+            <h3 className="section-title">Eventos importantes</h3>
+            <Calendar className="w-4 h-4 text-brand-500" />
           </div>
-          <div className="card-body space-y-3">
+          <div className="card-body">
             {stats.pagosVencidos > 0 && (
-              <Alert color="red" msg={`${stats.pagosVencidos} pagos de apoderados están vencidos`} />
+              <div className="mb-4 flex items-center gap-2 text-xs px-3 py-2 rounded-xl border bg-red-50 text-red-700 border-red-200 animate-pulse">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span className="font-bold">¡Atención! {stats.pagosVencidos} pagos vencidos</span>
+              </div>
             )}
-            <Alert color="yellow" msg="3 contratos de personal vencen este mes" />
-            <Alert color="blue" msg="Reunión de padres programada para el viernes" />
-            <Alert color="green" msg="Matrícula 2025 alcanzó 94% de capacidad" />
+            
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+              {upcomingEvents.map(ev => {
+                const colorClass = 
+                  ev.destinatarios === 'staff' ? 'bg-indigo-500' :
+                  ev.destinatarios === 'apoderados' ? 'bg-amber-500' :
+                  'bg-brand-500';
+                
+                return (
+                  <div 
+                    key={ev.id} 
+                    onClick={() => setSelectedEvent(ev)} 
+                    className="flex flex-col bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-brand-300 transition-all cursor-pointer group overflow-hidden"
+                  >
+                    <div className={`h-1.5 w-full ${colorClass} opacity-80 group-hover:opacity-100 transition-opacity`} />
+                    <div className="p-2 flex flex-col items-center justify-center flex-1">
+                      <span className="text-[8px] font-black uppercase text-slate-400 leading-tight">
+                        {format(parseISO(ev.fecha), 'MMM', { locale: es })}
+                      </span>
+                      <span className="text-lg font-black text-slate-800 leading-none my-0.5">
+                        {format(parseISO(ev.fecha), 'd')}
+                      </span>
+                      <h4 className="text-[9px] font-bold text-slate-600 line-clamp-1 uppercase tracking-tight w-full text-center">
+                        {ev.titulo}
+                      </h4>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {!loading && upcomingEvents.length === 0 && !stats.pagosVencidos && (
+              <div className="py-12 flex flex-col items-center justify-center opacity-30">
+                <Calendar className="w-10 h-10 mb-3" />
+                <p className="text-sm italic">Sin eventos próximos</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -239,21 +302,58 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Detalle de Evento */}
+      <Modal 
+        open={!!selectedEvent} 
+        onClose={() => setSelectedEvent(null)} 
+        title="Detalles de la Actividad"
+        size="md"
+      >
+        {selectedEvent && (
+          <div className="p-8 space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-brand-50 flex flex-col items-center justify-center text-brand-600 shadow-sm border border-brand-100">
+                <span className="text-[12px] font-black uppercase tracking-widest">{format(parseISO(selectedEvent.fecha), 'MMM', { locale: es })}</span>
+                <span className="text-2xl font-black leading-none">{format(parseISO(selectedEvent.fecha), 'd')}</span>
+              </div>
+              <div>
+                <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-tight">{selectedEvent.titulo}</h4>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded-lg">
+                    <Users className="w-3.5 h-3.5"/> {selectedEvent.destinatarios}
+                  </div>
+                  {selectedEvent.hora_inicio && (
+                    <div className="flex items-center gap-1.5 text-sm font-bold text-brand-600 bg-brand-50 px-2 py-1 rounded-lg">
+                      <Clock className="w-4 h-4"/> {selectedEvent.hora_inicio.substring(0,5)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="w-4 h-4 text-slate-400"/>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Descripción</span>
+              </div>
+              <p className="text-slate-600 leading-relaxed overflow-y-auto max-h-48 whitespace-pre-wrap">
+                {selectedEvent.descripcion || 'Sin descripción adicional disponible.'}
+              </p>
+            </div>
+
+            <div className="flex justify-end p-2">
+              <button 
+                className="btn-primary w-full sm:w-auto px-8"
+                onClick={() => setSelectedEvent(null)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
 
-function Alert({ color, msg }: { color: 'red' | 'yellow' | 'blue' | 'green'; msg: string }) {
-  const styles = {
-    red: 'bg-red-50 text-red-700 border-red-200',
-    yellow: 'bg-amber-50 text-amber-700 border-amber-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  }
-  return (
-    <div className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl border ${styles[color]}`}>
-      {color === 'green' ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
-      {msg}
-    </div>
-  )
-}
