@@ -106,6 +106,7 @@ export interface Estudiante {
   // Emergencia
   contacto_emergencia_nombre?: string
   contacto_emergencia_telefono?: string
+  valor_mensualidad?: number
   establecimiento_id: string
   created_at: string
   updated_at: string

@@ -9,13 +9,13 @@ import {
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/personal', icon: Users, label: 'Personal' },
-  { to: '/estudiantes', icon: GraduationCap, label: 'Estudiantes' },
   { to: '/cursos', icon: BookOpen, label: 'Cursos' },
+  { to: '/estudiantes', icon: GraduationCap, label: 'Estudiantes' },
+  { to: '/padres', icon: Bell, label: 'Gestión de Apoderados' },
   { to: '/asistencia', icon: CheckSquare, label: 'Asistencia' },
   { to: '/libreta', icon: Book, label: 'Libreta Diaria' },
   { to: '/libreta-apoderado', icon: Heart, label: 'Portal Apoderado' },
   { to: '/comunicados', icon: MessageSquare, label: 'Comunicación Interna' },
-  { to: '/padres', icon: Bell, label: 'Gestión de Apoderados' },
   { to: '/pagos', icon: CreditCard, label: 'Pagos Apoderados' },
   { to: '/proveedores', icon: Package, label: 'Pagos Proveedores' },
   { to: '/calendario', icon: Bell, label: 'Calendario' },
@@ -28,7 +28,7 @@ const adminItems = [
 // ── Permisos por rol ────────────────────────────────────────────────────────
 const ROL_RUTAS: Record<string, string[]> = {
   super_admin: ['/dashboard', '/establecimientos', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/libreta-apoderado', '/comunicados', '/padres', '/pagos', '/proveedores', '/calendario'],
-  direccion: ['/dashboard', '/personal', '/estudiantes', '/cursos', '/asistencia', '/libreta', '/comunicados', '/padres', '/pagos', '/proveedores', '/calendario'],
+  direccion: ['/dashboard', '/personal', '/cursos', '/estudiantes', '/padres', '/asistencia', '/libreta', '/comunicados', '/pagos', '/proveedores', '/calendario'],
   profesor: ['/dashboard', '/cursos', '/asistencia', '/libreta', '/comunicados', '/padres', '/calendario'],
   administrativo: ['/dashboard', '/estudiantes', '/asistencia', '/comunicados', '/padres', '/pagos', '/calendario'],
   apoderado: ['/libreta-apoderado', '/pagos', '/calendario'],

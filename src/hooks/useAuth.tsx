@@ -49,7 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // Fetch profile if needed
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || lastUserIdRef.current !== session.user.id) {
+        const needsProfileFetch = !perfilRef.current || lastUserIdRef.current !== session.user.id;
+
+        if (needsProfileFetch) {
           console.log("Fetching profile for user:", session.user.id)
           lastUserIdRef.current = session.user.id
           setPerfilLoading(true)

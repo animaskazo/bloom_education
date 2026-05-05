@@ -9,7 +9,7 @@ import { es } from 'date-fns/locale'
 const emptyForm = { 
   rut:'', nombre:'', apellido:'', fecha_nacimiento:'', genero:'', nacionalidad:'Chilena', direccion:'', curso_id:'', estado:'activo' as EstadoGeneral,
   grupo_sangre:'', alergias:'', enfermedades_cronicas:'', medicamentos:'', prevision_salud:'',
-  contacto_emergencia_nombre:'', contacto_emergencia_telefono:''
+  contacto_emergencia_nombre:'', contacto_emergencia_telefono:'', valor_mensualidad: '' as number | ''
 }
 
 export default function EstudiantesPage() {
@@ -62,7 +62,7 @@ export default function EstudiantesPage() {
     setForm({ 
       rut:r.rut, nombre:r.nombre, apellido:r.apellido, fecha_nacimiento:r.fecha_nacimiento??'', genero:r.genero??'', nacionalidad:r.nacionalidad??'Chilena', direccion:r.direccion??'', curso_id:r.curso_id??'', estado:r.estado,
       grupo_sangre:r.grupo_sangre??'', alergias:r.alergias??'', enfermedades_cronicas:r.enfermedades_cronicas??'', medicamentos:r.medicamentos??'', prevision_salud:r.prevision_salud??'',
-      contacto_emergencia_nombre:r.contacto_emergencia_nombre??'', contacto_emergencia_telefono:r.contacto_emergencia_telefono??''
+      contacto_emergencia_nombre:r.contacto_emergencia_nombre??'', contacto_emergencia_telefono:r.contacto_emergencia_telefono??'', valor_mensualidad: r.valor_mensualidad ?? ''
     })
     setEditing(r); setError(''); setModal('edit'); setActiveTab('personal')
   }
@@ -95,6 +95,7 @@ export default function EstudiantesPage() {
       prevision_salud: form.prevision_salud||null,
       contacto_emergencia_nombre: form.contacto_emergencia_nombre||null,
       contacto_emergencia_telefono: form.contacto_emergencia_telefono||null,
+      valor_mensualidad: form.valor_mensualidad === '' ? null : Number(form.valor_mensualidad),
       establecimiento_id: selectedEstablecimientoId
     }
 
@@ -275,6 +276,7 @@ export default function EstudiantesPage() {
                 {cursos.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.letra?' '+c.letra:''}</option>)}
               </select>
             </div>
+            <F label="Valor Mensualidad (Opcional)" value={form.valor_mensualidad as any} onChange={v=>setForm({...form,valor_mensualidad:v})} type="number" placeholder="Ej: 150000" />
             <F label="Estado" value={form.estado} onChange={v=>setForm({...form,estado:v as EstadoGeneral})} select options={[['activo','Activo'],['inactivo','Inactivo'],['suspendido','Suspendido']]} />
           </div>
         )}
@@ -367,6 +369,7 @@ export default function EstudiantesPage() {
                     <I label="Edad / Nacimiento" val={`${edad(editing.fecha_nacimiento)} (${format(new Date(editing.fecha_nacimiento||''), 'dd MMM yyyy', {locale:es})})`} />
                     <I label="Género" val={editing.genero==='F'?'Femenino':editing.genero==='M'?'Masculino':'Otros'} />
                     <I label="Nacionalidad" val={editing.nacionalidad || 'Chilena'} />
+                    <I label="Valor Mensualidad" val={editing.valor_mensualidad ? `$${editing.valor_mensualidad.toLocaleString()}` : 'No asignado'} />
                     <I label="Dirección" val={editing.direccion || '—'} colSpan />
                   </div>
                 )}
