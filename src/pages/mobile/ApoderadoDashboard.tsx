@@ -49,10 +49,21 @@ export default function ApoderadoDashboard() {
   const [configs, setConfigs] = useState<LibretaConfig[]>([])
   const [pagos, setPagos] = useState<PagoApoderado[]>([])
   const [latestComunicado, setLatestComunicado] = useState<Comunicado | null>(null)
+  const [establecimientoNombre, setEstablecimientoNombre] = useState<string>('')
 
   // UI State
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+
+  const formatName = (nombre?: string, apellido?: string) => {
+    if (!nombre && !apellido) return '—'
+    const full = `${nombre || ''} ${apellido || ''}`.trim()
+    return full
+      .split(/[\s._-]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }
 
   useEffect(() => {
     if (perfil) loadDashboardData()
@@ -85,6 +96,17 @@ export default function ApoderadoDashboard() {
       }
 
       const mainApod = apodList[0]
+
+      if (mainApod.establecimiento_id) {
+        const { data: estabData } = await supabase
+          .from('establecimientos')
+          .select('nombre')
+          .eq('id', mainApod.establecimiento_id)
+          .single()
+        if (estabData) {
+          setEstablecimientoNombre(estabData.nombre)
+        }
+      }
 
       if (!mainApod.perfil_id && perfil.email) {
         await supabase.rpc('vincular_perfil_apoderado', {
@@ -223,13 +245,13 @@ export default function ApoderadoDashboard() {
           </div>
           <div className="overflow-hidden">
             <h1 className="text-md font-bold text-[#1E293B] truncate">
-              {activeTab === 'home' && selectedHijo ? `Apoderado de ${selectedHijo.nombre}` : `Hola, ${perfil?.nombre}`}
+              {activeTab === 'home' && selectedHijo ? `Apoderado de ${selectedHijo.nombre}` : `Hola, ${formatName(perfil?.nombre, perfil?.apellido)}`}
             </h1>
             <p className="text-xs font-semibold text-slate-400">Buenos días ✨</p>
           </div>
         </div>
         <button
-          onClick={() => signOut()}
+          onClick={() => setShowLogoutConfirm(true)}
           className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 active:scale-95 transition-all rounded-2xl border border-slate-100 shadow-sm"
           title="Cerrar sesión"
         >
@@ -292,39 +314,39 @@ export default function ApoderadoDashboard() {
             )}
 
             {/* ── WEEKLY SCHEDULE (Horizontal) ──────────────────────────────────── */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black text-[#1E293B]">Esta Semana</h2>
-                <button
-                  onClick={() => navigate('/calendario')}
-                  className="text-blue-600 font-bold text-xs"
-                >
-                  Ver Calendario
-                </button>
-              </div>
-              <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-6 px-6">
-                {eventosWeek.length > 0 ? eventosWeek.map(event => (
-                  <div
-                    key={event.id}
-                    onClick={() => setSelectedEvent(event)}
-                    className="min-w-[200px] bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 transition-transform active:scale-95 cursor-pointer"
+            {eventosWeek.length > 0 && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-black text-[#1E293B]">Esta Semana</h2>
+                  <button
+                    onClick={() => navigate('/calendario')}
+                    className="text-blue-600 font-bold text-xs"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-red-50 flex flex-col items-center justify-center flex-shrink-0 border border-red-100">
-                      <span className="text-[10px] font-black text-red-400 uppercase tracking-tighter">{format(parseISO(event.fecha), 'MMM', { locale: es })}</span>
-                      <span className="text-lg font-black text-red-600 leading-none">{format(parseISO(event.fecha), 'd')}</span>
+                    Ver Calendario
+                  </button>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-6 px-6">
+                  {eventosWeek.map(event => (
+                    <div
+                      key={event.id}
+                      onClick={() => setSelectedEvent(event)}
+                      className="min-w-[200px] bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 transition-transform active:scale-95 cursor-pointer"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-red-50 flex flex-col items-center justify-center flex-shrink-0 border border-red-100">
+                        <span className="text-[10px] font-black text-red-400 uppercase tracking-tighter">{format(parseISO(event.fecha), 'MMM', { locale: es })}</span>
+                        <span className="text-lg font-black text-red-600 leading-none">{format(parseISO(event.fecha), 'd')}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <h4 className="font-bold text-slate-800 text-sm line-clamp-2">{event.titulo}</h4>
+                        <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {event.hora_inicio?.substring(0, 5) || 'Todo el día'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-0.5">
-                      <h4 className="font-bold text-slate-800 text-sm line-clamp-2">{event.titulo}</h4>
-                      <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {event.hora_inicio?.substring(0, 5) || 'Todo el día'}
-                      </p>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="w-full py-4 text-center text-slate-300 italic text-sm">No hay actividades agendadas</div>
-                )}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* ── DAILY HISTORY (Accordion) ─────────────────────────────────────── */}
             <section className="space-y-4">
@@ -344,7 +366,14 @@ export default function ApoderadoDashboard() {
                         <div className="flex justify-between items-center mb-5">
                           <div className="flex flex-col">
                             <h4 className="text-lg font-black text-[#1E293B]">
-                              {isToday ? 'Hoy, ' : ''}{format(new Date(log.fecha + 'T12:00:00'), "EEEE d", { locale: es })}
+                              {isToday ? 'Hoy, ' : ''}
+                              {(() => {
+                                const dateObj = new Date(log.fecha + 'T12:00:00')
+                                const weekday = format(dateObj, 'EEEE', { locale: es })
+                                const day = format(dateObj, 'd')
+                                const month = format(dateObj, 'MMMM', { locale: es })
+                                return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} ${day} de ${month.charAt(0).toUpperCase() + month.slice(1)}`
+                              })()}
                             </h4>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isToday ? 'ÚLTIMA ENTRADA' : 'FECHA ANTERIOR'}</span>
                           </div>
@@ -464,6 +493,11 @@ export default function ApoderadoDashboard() {
               </div>
               <h2 className="text-xl font-black text-[#1E293B]">{selectedHijo.nombre} {selectedHijo.apellido}</h2>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">{selectedHijo.curso?.nombre || 'Sin curso asignado'}</p>
+              {establecimientoNombre && (
+                <p className="text-xs font-semibold text-blue-600 mt-2 bg-blue-50/60 px-3 py-1 rounded-full border border-blue-100/30">
+                  🏫 {establecimientoNombre}
+                </p>
+              )}
             </div>
 
             {/* Información General */}
@@ -550,7 +584,7 @@ export default function ApoderadoDashboard() {
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <p className="text-slate-400 font-medium">Nombre Completo</p>
-                  <p className="font-bold text-slate-800 mt-0.5">{perfil?.nombre} {perfil?.apellido}</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{formatName(perfil?.nombre, perfil?.apellido)}</p>
                 </div>
                 <div>
                   <p className="text-slate-400 font-medium">RUT</p>
@@ -569,7 +603,7 @@ export default function ApoderadoDashboard() {
 
             {/* Cerrar Sesión */}
             <button
-              onClick={() => signOut()}
+              onClick={() => setShowLogoutConfirm(true)}
               className="w-full py-4 text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors rounded-[24px] shadow-lg shadow-red-100 flex items-center justify-center gap-2"
             >
               <LogOut className="w-4 h-4" />
@@ -753,6 +787,35 @@ export default function ApoderadoDashboard() {
             >
               Entendido
             </button>
+          </div>
+        </div>
+      )}
+      {/* ── LOGOUT CONFIRMATION MODAL ────────────────────────────────────── */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-6">
+          <div className="bg-white rounded-[32px] p-6 w-full max-w-sm border border-slate-100 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mb-4">
+              <LogOut className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-black text-[#1E293B] mb-2">¿Cerrar Sesión?</h3>
+            <p className="text-xs font-semibold text-slate-400 leading-relaxed mb-6">¿Estás seguro de que deseas cerrar sesión en Bloom Education? Tendrás que ingresar tus credenciales nuevamente para acceder.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition-colors active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  setShowLogoutConfirm(false)
+                  await signOut()
+                }}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-red-100 transition-colors active:scale-95"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
           </div>
         </div>
       )}

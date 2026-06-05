@@ -77,7 +77,7 @@ export default function PricingPage() {
         'Todo lo de Plus, más:',
         'Pagos con PAC y PAT.',
         'Integración de WhatsApp para la comunicación de los apoderados.',
-        'Reportes gerenciales procesados por IA.',
+        'Reportes en minutos procesados por IA.',
         'Recordatorios automáticos de morosidad.'
       ],
       ctaText: 'Agendar Demo VIP',

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <!-- Soft background gradient -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDF2F8" />
+      <stop offset="100%" stop-color="#FCE7F3" />
+    </linearGradient>
+    <!-- Cherry blossom petals gradient -->
+    <linearGradient id="petal-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F472B6" />
+      <stop offset="100%" stop-color="#DB2777" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded squircle container with premium soft pink background -->
+  <rect x="8" y="8" width="112" height="112" rx="34" fill="url(#bg-grad)" stroke="#FBCFE8" stroke-width="2" />
+  
+  <!-- Stylized Flower (Cherry Blossom) representing Bloom -->
+  <g transform="translate(64, 64) scale(0.95)">
+    <!-- Petals rotating symmetrically -->
+    <path d="M 0 0 C -25 -35, -15 -60, 0 -60 C 15 -60, 25 -35, 0 0 Z" fill="url(#petal-grad)" opacity="0.95" />
+    <path d="M 0 0 C -25 -35, -15 -60, 0 -60 C 15 -60, 25 -35, 0 0 Z" fill="url(#petal-grad)" opacity="0.95" transform="rotate(72)" />
+    <path d="M 0 0 C -25 -35, -15 -60, 0 -60 C 15 -60, 25 -35, 0 0 Z" fill="url(#petal-grad)" opacity="0.95" transform="rotate(144)" />
+    <path d="M 0 0 C -25 -35, -15 -60, 0 -60 C 15 -60, 25 -35, 0 0 Z" fill="url(#petal-grad)" opacity="0.95" transform="rotate(216)" />
+    <path d="M 0 0 C -25 -35, -15 -60, 0 -60 C 15 -60, 25 -35, 0 0 Z" fill="url(#petal-grad)" opacity="0.95" transform="rotate(288)" />
+    
+    <!-- Central pistil details -->
+    <circle cx="0" cy="0" r="12" fill="#FDF2F8" />
+    <circle cx="0" cy="0" r="7" fill="#BE185D" />
+  </g>
+</svg>
