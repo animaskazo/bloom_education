@@ -539,6 +539,7 @@ export default function LandingPage() {
             <a href="#lp-cobranza">Cobranza</a>
             <a href="#lp-modulos">Módulos</a>
             <a href="#lp-testimonios">Testimonios</a>
+            <Link to="/pricing">Precios</Link>
             <a href="#lp-contacto">Contacto</a>
           </div>
           <button className="lp-nav-cta" onClick={() => navigate('/login')}>
@@ -892,6 +893,7 @@ export default function LandingPage() {
               <div className="lp-foot-links">
                 <Link to="/privacidad">Privacidad</Link>
                 <Link to="/terminos">Términos de uso</Link>
+                <Link to="/pricing">Precios</Link>
                 <Link to="/soporte">Soporte</Link>
                 <Link to="/contacto">Contacto</Link>
               </div>

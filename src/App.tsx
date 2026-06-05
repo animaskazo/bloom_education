@@ -24,6 +24,7 @@ import PrivacidadPage from '@/pages/PrivacidadPage'
 import TerminosPage from '@/pages/TerminosPage'
 import SoportePage from '@/pages/SoportePage'
 import ContactoPage from '@/pages/ContactoPage'
+import PricingPage from '@/pages/PricingPage'
 
 function LoadingScreen() {
   return (
@@ -89,6 +90,7 @@ function AppRoutes() {
        <Route path="/terminos" element={<TerminosPage />} />
        <Route path="/soporte" element={<SoportePage />} />
        <Route path="/contacto" element={<ContactoPage />} />
+       <Route path="/pricing" element={<PricingPage />} />
 
       {/* Privadas — AppLayout wrapper gestiona la distinción visual de layout */}
       <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
