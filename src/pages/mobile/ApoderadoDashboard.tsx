@@ -9,29 +9,22 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
-  Utensils,
   Moon,
-  Smile,
-  MessageCircle,
   CreditCard,
   CheckCircle2,
   Clock,
-  User,
   Heart,
-  ChevronRight,
-  Mail,
   Home,
   X,
   Frown,
-  Activity,
-  Soup
+  Soup,
+  LogOut
 } from 'lucide-react'
-import { format, startOfWeek, endOfWeek, addDays, isSameDay, parseISO, startOfDay, isBefore } from 'date-fns'
+import { format, parseISO, startOfDay, isBefore } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const MESES_ES = ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-// ── TYPES ──────────────────────────────────────────────────────────────
 interface Evento {
   id: string
   titulo: string
@@ -43,10 +36,10 @@ interface Evento {
 }
 
 export default function ApoderadoDashboard() {
-  const { perfil, selectedEstablecimientoId } = useAuth()
+  const { perfil, selectedEstablecimientoId, signOut } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'daily' | 'events' | 'inbox' | 'profile'>('daily')
+  const [activeTab, setActiveTab] = useState<'home' | 'student' | 'payments'>('home')
 
   // Data State
   const [hijos, setHijos] = useState<(Estudiante & { curso?: Curso })[]>([])
@@ -59,7 +52,6 @@ export default function ApoderadoDashboard() {
 
   // UI State
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
-  const [isPaymentsCollapsed, setIsPaymentsCollapsed] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null)
 
   useEffect(() => {
@@ -69,7 +61,6 @@ export default function ApoderadoDashboard() {
   async function loadDashboardData() {
     setLoading(true)
     try {
-      // 1. Obtener TODOS los registros de apoderado (por si hay duplicados administrativos)
       if (!perfil) return
 
       let orQuery = `perfil_id.eq.${perfil.id}`
@@ -83,24 +74,19 @@ export default function ApoderadoDashboard() {
         orQuery += `,email.eq.${perfil.email}`
       }
 
-      const { data: apodList, error } = await supabase
+      const { data: apodList } = await supabase
         .from('apoderados')
         .select('*, id, establecimiento_id, rut, perfil_id')
         .or(orQuery)
 
-      console.log('🎯 DEBUG: Resultado Apoderados ->', apodList)
-
       if (!apodList || apodList.length === 0) {
-        console.warn('Dashboard Apoderado: No se encontró ficha de apoderado para este perfil')
         setLoading(false)
         return
       }
 
       const mainApod = apodList[0]
 
-      // Vincular automáticamente el perfil_id si estaba vacío y entramos por email
       if (!mainApod.perfil_id && perfil.email) {
-        console.log('🎯 DEBUG: Apoderado no tiene perfil_id. Vinculando mediante RPC...')
         await supabase.rpc('vincular_perfil_apoderado', {
           p_email: perfil.email,
           p_perfil_id: perfil.id
@@ -108,29 +94,21 @@ export default function ApoderadoDashboard() {
       }
 
       const allApodIds = apodList.map(a => a.id)
-      console.log('🎯 DEBUG: Mapeo de Apod_IDs a buscar ->', allApodIds)
 
-      // 2. Obtener hijos combinados
-      const { data: links, error: linkErr } = await supabase
+      const { data: links } = await supabase
         .from('estudiante_apoderado')
         .select('estudiante_id, apoderado_id')
         .in('apoderado_id', allApodIds)
 
-      console.log('🎯 DEBUG: Vínculos obtenidos ->', links, (linkErr ? `ERROR: ${linkErr.message}` : ''))
-
       if (links && links.length > 0) {
         const uniqueEstIds = Array.from(new Set(links.map(l => l.estudiante_id)))
-        console.log('🎯 DEBUG: Alumnos únicos a buscar ->', uniqueEstIds)
 
-        const { data: estData, error: estErr } = await supabase
+        const { data: estData } = await supabase
           .from('estudiantes')
           .select('*, cursos(*)')
           .in('id', uniqueEstIds)
 
-        console.log('🎯 DEBUG: Datos Estudiantes extraidos ->', estData, (estErr ? `ERROR: ${estErr.message}` : ''))
-
         const formatted = (estData || []).map(e => ({ ...e, curso: e.cursos }))
-        console.log('🎯 DEBUG: Hijos seteados en el state ->', formatted)
         setHijos(formatted)
 
         if (formatted.length > 0) {
@@ -140,35 +118,30 @@ export default function ApoderadoDashboard() {
           const linkHijo = links.find(l => l.estudiante_id === firstHijoId)
           await loadStudentSpecificData(firstHijoId, linkHijo?.apoderado_id || mainApod.id)
         }
-      } else {
-        console.warn('🎯 DEBUG: No hay vínculos en estudiante_apoderado')
       }
-      // 3. Eventos de la semana
-      const now = new Date()
-      const start = format(addDays(now, -7), 'yyyy-MM-dd')
-      const end = format(addDays(now, 7), 'yyyy-MM-dd')
 
-      const { data: eventData, error: eventErr } = await supabase
+      // Eventos de la semana
+      const now = new Date()
+      const start = format(new Date(now.setDate(now.getDate() - 7)), 'yyyy-MM-dd')
+      const end = format(new Date(now.setDate(now.getDate() + 14)), 'yyyy-MM-dd')
+
+      const { data: eventData } = await supabase
         .from('eventos_calendario')
         .select('*')
         .gte('fecha', start)
         .lte('fecha', end)
 
-      if (eventErr) {
-        console.error('Error fetching dashboard events:', eventErr)
-      } else {
-        const filtered = (eventData || [])
-          .filter(e => {
-            const matchEst = e.establecimiento_id === mainApod.establecimiento_id
-            const matchDest = ['todos', 'apoderados'].includes(e.destinatarios?.toLowerCase())
-            return matchEst && matchDest
-          })
-          .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      const filtered = (eventData || [])
+        .filter(e => {
+          const matchEst = e.establecimiento_id === mainApod.establecimiento_id
+          const matchDest = ['todos', 'apoderados'].includes(e.destinatarios?.toLowerCase())
+          return matchEst && matchDest
+        })
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
 
-        setEventosWeek(filtered)
-      }
+      setEventosWeek(filtered)
 
-      // 4. Último comunicado importante
+      // Último comunicado importante
       const { data: commData } = await supabase
         .from('comunicados')
         .select('*')
@@ -181,7 +154,7 @@ export default function ApoderadoDashboard() {
         setLatestComunicado(commData[0])
       }
 
-      // 5. Configs
+      // Configs
       const { data: confs } = await supabase
         .from('libreta_configuracion')
         .select('*')
@@ -197,7 +170,7 @@ export default function ApoderadoDashboard() {
   }
 
   async function loadStudentSpecificData(estId: string, apodId: string) {
-    if (!estId) return;
+    if (!estId) return
 
     // Libreta diaria
     const { data: logData } = await supabase
@@ -209,20 +182,18 @@ export default function ApoderadoDashboard() {
     setLogs(logData || [])
 
     // Pagos del alumno
-    // Nota: Filtramos por estudiante_id para traer exactamente los cobros de ese niño.
     const { data: payData } = await supabase
       .from('pagos_apoderados')
       .select('*')
       .eq('estudiante_id', estId)
       .order('fecha_vencimiento', { ascending: false })
 
-    console.log(`Pagos cargados para ${estId}:`, payData);
     setPagos(payData || [])
   }
 
   const handleConfirmReading = async (logId: string) => {
     const { error } = await supabase
-      .from('libreta_diaria' as any) // Assuming we add this field
+      .from('libreta_diaria' as any)
       .update({ revisado_at: new Date().toISOString() })
       .eq('id', logId)
 
@@ -233,7 +204,13 @@ export default function ApoderadoDashboard() {
 
   const selectedHijo = hijos.find(h => h.id === selectedHijoId)
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-white"><Spinner className="w-8 h-8 text-blue-600" /></div>
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white">
+        <Spinner className="w-8 h-8 text-blue-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F8F9FE] pb-24 font-sans max-w-md mx-auto shadow-2xl relative">
@@ -246,25 +223,32 @@ export default function ApoderadoDashboard() {
           </div>
           <div className="overflow-hidden">
             <h1 className="text-md font-bold text-[#1E293B] truncate">
-              Apoderado de {selectedHijo ? `${selectedHijo.nombre}` : perfil?.nombre}
+              {activeTab === 'home' && selectedHijo ? `Apoderado de ${selectedHijo.nombre}` : `Hola, ${perfil?.nombre}`}
             </h1>
             <p className="text-xs font-semibold text-slate-400">Buenos días ✨</p>
           </div>
         </div>
+        <button
+          onClick={() => signOut()}
+          className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 active:scale-95 transition-all rounded-2xl border border-slate-100 shadow-sm"
+          title="Cerrar sesión"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </header>
 
-      {/* ── CHILDREN SELECTOR (Only if multiple) ────────────────────────── */}
-      {hijos.length > 1 && (
+      {/* ── CHILDREN SELECTOR (Only if multiple and on home/payments tabs) ── */}
+      {hijos.length > 1 && activeTab !== 'student' && (
         <section className="px-6 mb-4">
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
             {hijos.map(h => {
-              const isActive = h.id === selectedHijoId;
+              const isActive = h.id === selectedHijoId
               return (
                 <button
                   key={h.id}
                   onClick={() => {
-                    setSelectedHijoId(h.id);
-                    loadStudentSpecificData(h.id, perfil?.id || '');
+                    setSelectedHijoId(h.id)
+                    loadStudentSpecificData(h.id, perfil?.id || '')
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-xs font-bold transition-all border-2 ${isActive
                     ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100'
@@ -274,225 +258,346 @@ export default function ApoderadoDashboard() {
                   <Baby className="w-3.5 h-3.5" />
                   {h.nombre} {h.apellido}
                 </button>
-              );
+              )
             })}
           </div>
         </section>
       )}
 
+      {/* ── MAIN CONTENT ─────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto px-6 space-y-8 scroll-smooth no-scrollbar">
 
-        {/* ── REMINDER CARD ─────────────────────────────────────────────────── */}
-        {latestComunicado && (
-          <section className="animate-in fade-in slide-in-from-top-4 duration-700">
-            <div className="bg-[#007AFF] rounded-[32px] p-6 text-white shadow-xl shadow-blue-100 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-20 transform translate-x-4 -translate-y-4">
-                <Bell className="w-24 h-24" />
-              </div>
-              <div className="flex items-start gap-4 mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1">AVISO RECIENTE</h4>
-                  <h3 className="text-xl font-bold leading-tight">{latestComunicado.titulo}</h3>
-                </div>
-              </div>
-              <p className="text-sm text-blue-50 opacity-90 line-clamp-2 mb-2">{latestComunicado.contenido}</p>
-              <button className="text-[11px] font-bold underline decoration-white/30 underline-offset-4">Ver detalle</button>
-            </div>
-          </section>
-        )}
-
-        {/* ── WEEKLY SCHEDULE (Horizontal) ──────────────────────────────────── */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-[#1E293B]">Esta Semana</h2>
-            <button
-              onClick={() => navigate('/calendario')}
-              className="text-blue-600 font-bold text-xs"
-            >
-              Ver Calendario
-            </button>
-          </div>
-          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-6 px-6">
-            {eventosWeek.length > 0 ? eventosWeek.map(event => (
-              <div
-                key={event.id}
-                onClick={() => setSelectedEvent(event)}
-                className="min-w-[200px] bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 transition-transform active:scale-95 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-red-50 flex flex-col items-center justify-center flex-shrink-0 border border-red-100">
-                  <span className="text-[10px] font-black text-red-400 uppercase tracking-tighter">{format(parseISO(event.fecha), 'MMM', { locale: es })}</span>
-                  <span className="text-lg font-black text-red-600 leading-none">{format(parseISO(event.fecha), 'd')}</span>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <h4 className="font-bold text-slate-800 text-sm line-clamp-2">{event.titulo}</h4>
-                  <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> {event.hora_inicio?.substring(0, 5) || 'Todo el día'}
-                  </p>
-                </div>
-              </div>
-            )) : (
-              <div className="w-full py-4 text-center text-slate-300 italic text-sm">No hay actividades agendadas</div>
-            )}
-          </div>
-        </section>
-
-        {/* ── DAILY HISTORY (Accordion) ─────────────────────────────────────── */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-black text-[#1E293B]">Libreta Diaria</h2>
-          <div className="space-y-4">
-            {logs.map((log, idx) => {
-              const isExpanded = expandedLogId === log.id;
-              const isToday = isSameDay(new Date(log.fecha + 'T12:00:00'), new Date());
-              const isChecked = (log as any).revisado_at != null;
-
-              return (
-                <div key={log.id} className={`bg-white rounded-[32px] overflow-hidden border-2 transition-all duration-300 ${isExpanded ? 'border-blue-100 shadow-xl' : 'border-transparent shadow-sm'}`}>
-                  <div
-                    onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                    className="p-6 cursor-pointer"
-                  >
-                    <div className="flex justify-between items-center mb-5">
-                      <div className="flex flex-col">
-                        <h4 className="text-lg font-black text-[#1E293B]">
-                          {isToday ? 'Hoy, ' : ''}{format(new Date(log.fecha + 'T12:00:00'), "EEEE d", { locale: es })}
-                        </h4>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isToday ? 'ÚLTIMA ENTRADA' : 'FECHA ANTERIOR'}</span>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
-                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                      </div>
+        {activeTab === 'home' && (
+          <>
+            {/* ── REMINDER CARD ─────────────────────────────────────────────────── */}
+            {latestComunicado && (
+              <section className="animate-in fade-in slide-in-from-top-4 duration-700">
+                <div className="bg-[#007AFF] rounded-[32px] p-6 text-white shadow-xl shadow-blue-100 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-20 transform translate-x-4 -translate-y-4">
+                    <Bell className="w-24 h-24" />
+                  </div>
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                      <Bell className="w-5 h-5 text-white" />
                     </div>
-
-                    <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar pb-1">
-                      {configs.slice(0, 4).map((q) => {
-                        const res = log.respuestas[q.id];
-                        if (!res) return null;
-
-                        let Icon = Soup;
-                        let colorClass = "bg-purple-50 text-purple-600";
-                        let tag = "Info";
-                        const ask = q.pregunta.toLowerCase();
-
-                        if (ask.includes("comid") || ask.includes("almuerzo") || ask.includes("colac") || ask.includes("aliment") || ask.includes("comi")) {
-                          Icon = Soup;
-                          colorClass = "bg-emerald-50 text-emerald-600";
-                          tag = "¿Almorzó?";
-                        } else if (ask.includes("sueño") || ask.includes("siesta") || ask.includes("dormi")) {
-                          Icon = Moon;
-                          colorClass = "bg-blue-50 text-blue-600";
-                          tag = "¿Durmió?";
-                        } else if (ask.includes("llorar") || ask.includes("llanto") || ask.includes("triste") || ask.includes("lagrima")) {
-                          Icon = Frown;
-                          colorClass = "bg-indigo-50 text-indigo-600";
-                          tag = "¿Lloró?";
-                        } else if (ask.includes("animo") || ask.includes("ánimo") || ask.includes("emoci") || ask.includes("sient")) {
-                          Icon = Heart;
-                          colorClass = "bg-amber-50 text-amber-600";
-                          tag = "Emoción";
-                        } else {
-                          tag = q.pregunta.split(' ')[0];
-                        }
-
-                        return (
-                          <StatusIcon key={q.id} icon={Icon} color={colorClass} tag={tag} label={res.r} hasComment={!!res.c} />
-                        );
-                      })}
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1">AVISO RECIENTE</h4>
+                      <h3 className="text-xl font-bold leading-tight">{latestComunicado.titulo}</h3>
                     </div>
                   </div>
+                  <p className="text-sm text-blue-50 opacity-90 line-clamp-2 mb-2">{latestComunicado.contenido}</p>
+                  <button className="text-[11px] font-bold underline decoration-white/30 underline-offset-4">Ver detalle</button>
+                </div>
+              </section>
+            )}
 
-                  {isExpanded && (
-                    <div className="px-6 pb-6 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="h-px bg-slate-100 mb-4" />
+            {/* ── WEEKLY SCHEDULE (Horizontal) ──────────────────────────────────── */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black text-[#1E293B]">Esta Semana</h2>
+                <button
+                  onClick={() => navigate('/calendario')}
+                  className="text-blue-600 font-bold text-xs"
+                >
+                  Ver Calendario
+                </button>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-6 px-6">
+                {eventosWeek.length > 0 ? eventosWeek.map(event => (
+                  <div
+                    key={event.id}
+                    onClick={() => setSelectedEvent(event)}
+                    className="min-w-[200px] bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 transition-transform active:scale-95 cursor-pointer"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-red-50 flex flex-col items-center justify-center flex-shrink-0 border border-red-100">
+                      <span className="text-[10px] font-black text-red-400 uppercase tracking-tighter">{format(parseISO(event.fecha), 'MMM', { locale: es })}</span>
+                      <span className="text-lg font-black text-red-600 leading-none">{format(parseISO(event.fecha), 'd')}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <h4 className="font-bold text-slate-800 text-sm line-clamp-2">{event.titulo}</h4>
+                      <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {event.hora_inicio?.substring(0, 5) || 'Todo el día'}
+                      </p>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="w-full py-4 text-center text-slate-300 italic text-sm">No hay actividades agendadas</div>
+                )}
+              </div>
+            </section>
 
-                      {/* Detailed Answers List */}
-                      <div className="mb-4">
-                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Detalle de Preguntas</h5>
-                        <div className="text-sm space-y-0">
-                          {configs.map(q => {
-                            const res = log.respuestas[q.id];
-                            if (!res) return null;
+            {/* ── DAILY HISTORY (Accordion) ─────────────────────────────────────── */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-black text-[#1E293B]">Libreta Diaria</h2>
+              <div className="space-y-4">
+                {logs.length > 0 ? logs.map((log) => {
+                  const isExpanded = expandedLogId === log.id
+                  const isToday = log.fecha === format(new Date(), 'yyyy-MM-dd')
+                  const isChecked = (log as any).revisado_at != null
+
+                  return (
+                    <div key={log.id} className={`bg-white rounded-[32px] overflow-hidden border-2 transition-all duration-300 ${isExpanded ? 'border-blue-100 shadow-xl' : 'border-transparent shadow-sm'}`}>
+                      <div
+                        onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                        className="p-6 cursor-pointer"
+                      >
+                        <div className="flex justify-between items-center mb-5">
+                          <div className="flex flex-col">
+                            <h4 className="text-lg font-black text-[#1E293B]">
+                              {isToday ? 'Hoy, ' : ''}{format(new Date(log.fecha + 'T12:00:00'), "EEEE d", { locale: es })}
+                            </h4>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isToday ? 'ÚLTIMA ENTRADA' : 'FECHA ANTERIOR'}</span>
+                          </div>
+                          <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar pb-1">
+                          {configs.slice(0, 4).map((q) => {
+                            const res = log.respuestas[q.id]
+                            if (!res) return null
+
+                            let Icon = Soup
+                            let colorClass = "bg-purple-50 text-purple-600"
+                            let tag = "Info"
+                            const ask = q.pregunta.toLowerCase()
+
+                            if (ask.includes("comid") || ask.includes("almuerzo") || ask.includes("colac") || ask.includes("aliment") || ask.includes("comi")) {
+                              Icon = Soup
+                              colorClass = "bg-emerald-50 text-emerald-600"
+                              tag = "¿Almorzó?"
+                            } else if (ask.includes("sueño") || ask.includes("siesta") || ask.includes("dormi")) {
+                              Icon = Moon
+                              colorClass = "bg-blue-50 text-blue-600"
+                              tag = "¿Durmió?"
+                            } else if (ask.includes("llorar") || ask.includes("llanto") || ask.includes("triste") || ask.includes("lagrima")) {
+                              Icon = Frown
+                              colorClass = "bg-indigo-50 text-indigo-600"
+                              tag = "¿Lloró?"
+                            } else if (ask.includes("animo") || ask.includes("ánimo") || ask.includes("emoci") || ask.includes("sient")) {
+                              Icon = Heart
+                              colorClass = "bg-amber-50 text-amber-600"
+                              tag = "Emoción"
+                            } else {
+                              tag = q.pregunta.split(' ')[0]
+                            }
+
                             return (
-                              <div key={`det-${q.id}`} className="py-2 border-b border-slate-50 last:border-0 flex flex-col justify-center">
-                                <div className="flex justify-between items-center gap-4">
-                                  <span className="text-slate-500 truncate">{q.pregunta}</span>
-                                  <span className="font-bold text-slate-800 flex-shrink-0">{res.r}</span>
-                                </div>
-                                {res.c && (
-                                  <p className="text-xs text-brand-600 italic mt-0.5 leading-snug tracking-tight">"{res.c}"</p>
-                                )}
-                              </div>
+                              <StatusIcon key={q.id} icon={Icon} color={colorClass} tag={tag} label={res.r} hasComment={!!res.c} />
                             )
                           })}
                         </div>
                       </div>
 
-                      {/* General Comment */}
-                      {log.comentario_general && (
-                        <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-100">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Comentario de la tía</p>
-                          <p className="text-sm text-slate-600 leading-snug italic">"{log.comentario_general}"</p>
+                      {isExpanded && (
+                        <div className="px-6 pb-6 pt-0 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <div className="h-px bg-slate-100 mb-4" />
+
+                          {/* Detailed Answers List */}
+                          <div className="mb-4">
+                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Detalle de Preguntas</h5>
+                            <div className="text-sm space-y-0">
+                              {configs.map(q => {
+                                const res = log.respuestas[q.id]
+                                if (!res) return null
+                                return (
+                                  <div key={`det-${q.id}`} className="py-2 border-b border-slate-50 last:border-0 flex flex-col justify-center">
+                                    <div className="flex justify-between items-center gap-4">
+                                      <span className="text-slate-500 truncate">{q.pregunta}</span>
+                                      <span className="font-bold text-slate-800 flex-shrink-0">{res.r}</span>
+                                    </div>
+                                    {res.c && (
+                                      <p className="text-xs text-brand-600 italic mt-0.5 leading-snug tracking-tight">"{res.c}"</p>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          {/* General Comment */}
+                          {log.comentario_general && (
+                            <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-100">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Comentario de la tía</p>
+                              <p className="text-sm text-slate-600 leading-snug italic">"{log.comentario_general}"</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-2">
+                            {isChecked ? (
+                              <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
+                                <CheckCircle2 className="w-4 h-4" /> Leído
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleConfirmReading(log.id) }}
+                                className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform"
+                              >
+                                Confirmar Lectura
+                              </button>
+                            )}
+                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider italic font-mono">
+                              ID: {log.id.substring(0, 6)}
+                            </span>
+                          </div>
                         </div>
                       )}
-
-                      <div className="flex items-center justify-between pt-2">
-                        {isChecked ? (
-                          <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
-                            <CheckCircle2 className="w-4 h-4" /> Leído
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleConfirmReading(log.id); }}
-                            className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-xs font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform"
-                          >
-                            Confirmar Lectura
-                          </button>
-                        )}
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider italic font-mono">
-                          ID: {log.id.substring(0, 6)}
-                        </span>
-                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                  )
+                }) : (
+                  <div className="w-full py-6 text-center text-slate-400 bg-white rounded-[32px] border border-slate-100 italic text-sm">
+                    No se han registrado libreta de actividades en los últimos días.
+                  </div>
+                )}
+              </div>
+            </section>
+          </>
+        )}
 
-        {/* ── PAYMENTS SECTION ──────────────────────────────────────────────── */}
-        <section className="space-y-4">
-          <div
-            className="flex items-center justify-between cursor-pointer group"
-            onClick={() => setIsPaymentsCollapsed(!isPaymentsCollapsed)}
-          >
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-[#1E293B]">Estado de Mensualidades</h2>
-              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-slate-200 transition-colors">
-                {isPaymentsCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        {activeTab === 'student' && selectedHijo && (
+          <section className="space-y-6 animate-in fade-in duration-300">
+            {/* Cabecera Ficha */}
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-black text-3xl mb-3 border-4 border-blue-50">
+                {selectedHijo.nombre[0]}
+              </div>
+              <h2 className="text-xl font-black text-[#1E293B]">{selectedHijo.nombre} {selectedHijo.apellido}</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">{selectedHijo.curso?.nombre || 'Sin curso asignado'}</p>
+            </div>
+
+            {/* Información General */}
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Información Personal</h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-slate-400 font-medium">RUT</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.rut || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Fecha de Nacimiento</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.fecha_nacimiento ? format(new Date(selectedHijo.fecha_nacimiento + 'T12:00:00'), 'dd/MM/yyyy') : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Género</p>
+                  <p className="font-bold text-slate-800 mt-0.5 capitalize">{selectedHijo.genero || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Nacionalidad</p>
+                  <p className="font-bold text-slate-800 mt-0.5 capitalize">{selectedHijo.nacionalidad || '—'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Dirección</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.direccion || '—'}</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+
+            {/* Información Médica */}
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Ficha Médica</h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-slate-400 font-medium">Grupo Sanguíneo</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.grupo_sangre || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Previsión de Salud</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.prevision_salud || '—'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Alergias</p>
+                  <p className="font-bold text-red-600 bg-red-50/50 px-2.5 py-1 rounded-lg mt-0.5 inline-block">{selectedHijo.alergias || 'Ninguna registrada'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Enfermedades Crónicas</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.enfermedades_cronicas || 'Ninguna'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-slate-400 font-medium">Medicamentos de uso diario</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.medicamentos || 'Ninguno'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ficha de Emergencia */}
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Contacto de Emergencia</h3>
+              <div className="text-xs space-y-3">
+                <div>
+                  <p className="text-slate-400 font-medium">Nombre de Contacto</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{selectedHijo.contacto_emergencia_nombre || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Teléfono de Emergencia</p>
+                  {selectedHijo.contacto_emergencia_telefono ? (
+                    <a
+                      href={`tel:${selectedHijo.contacto_emergencia_telefono}`}
+                      className="font-bold text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
+                    >
+                      📞 {selectedHijo.contacto_emergencia_telefono}
+                    </a>
+                  ) : (
+                    <p className="font-bold text-slate-800 mt-0.5">—</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Datos del Apoderado */}
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Ficha del Apoderado</h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-slate-400 font-medium">Nombre Completo</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{perfil?.nombre} {perfil?.apellido}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">RUT</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{perfil?.rut || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Correo Electrónico</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{perfil?.email || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Teléfono</p>
+                  <p className="font-bold text-slate-800 mt-0.5">{perfil?.telefono || '—'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cerrar Sesión */}
+            <button
+              onClick={() => signOut()}
+              className="w-full py-4 text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors rounded-[24px] shadow-lg shadow-red-100 flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar Sesión
+            </button>
+          </section>
+        )}
+
+        {activeTab === 'payments' && (
+          <section className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-[#1E293B]">Estado de Mensualidades</h2>
+              <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
                 {pagos.filter(p => p.estado === 'pagado').length}/10 PAGADOS
               </span>
             </div>
-          </div>
 
-          {!isPaymentsCollapsed && (
-            <div className="card p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm">
               {/* Grid de Meses */}
               <div className="grid grid-cols-2 gap-3">
-                {MESES_ES.map((mes, idx) => {
-                  const currentYear = new Date().getFullYear();
-                  const mesCompleto = `${mes} ${currentYear}`;
-                  const pago = pagos.find(p => p.mes_periodo === mesCompleto || (p.mes_periodo?.startsWith(mes) && p.mes_periodo?.includes(currentYear.toString())));
+                {MESES_ES.map((mes) => {
+                  const currentYear = new Date().getFullYear()
+                  const mesCompleto = `${mes} ${currentYear}`
+                  const pago = pagos.find(p => p.mes_periodo === mesCompleto || (p.mes_periodo?.startsWith(mes) && p.mes_periodo?.includes(currentYear.toString())))
 
-                  const isPaid = pago?.estado === 'pagado';
-                  const isPending = pago?.estado === 'pendiente';
-                  const isOverdue = isPending && isBefore(new Date(pago.fecha_vencimiento + 'T23:59:59'), startOfDay(new Date()));
+                  const isPaid = pago?.estado === 'pagado'
+                  const isPending = pago?.estado === 'pendiente'
+                  const isOverdue = isPending && isBefore(new Date(pago.fecha_vencimiento + 'T23:59:59'), startOfDay(new Date()))
 
                   return (
                     <div
@@ -525,7 +630,7 @@ export default function ApoderadoDashboard() {
                         </p>
                       </div>
                     </div>
-                  );
+                  )
                 })}
               </div>
 
@@ -541,13 +646,42 @@ export default function ApoderadoDashboard() {
                 </button>
               </div>
             </div>
-          )}
-        </section>
-
+          </section>
+        )}
       </main>
 
       {/* ── BOTTOM NAV ────────────────────────────────────────────────────── */}
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-lg border-t border-slate-200/80 px-6 py-2 flex items-center justify-around z-50">
+        <button
+          onClick={() => setActiveTab('home')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all duration-300 ${
+            activeTab === 'home' ? 'text-blue-600 font-bold scale-105' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Home className="w-5 h-5" />
+          <span className="text-[9px] font-black tracking-widest uppercase">Inicio</span>
+        </button>
 
+        <button
+          onClick={() => setActiveTab('student')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all duration-300 ${
+            activeTab === 'student' ? 'text-blue-600 font-bold scale-105' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Baby className="w-5 h-5" />
+          <span className="text-[9px] font-black tracking-widest uppercase">Alumno</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('payments')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all duration-300 ${
+            activeTab === 'payments' ? 'text-blue-600 font-bold scale-105' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <CreditCard className="w-5 h-5" />
+          <span className="text-[9px] font-black tracking-widest uppercase">Pagos</span>
+        </button>
+      </nav>
 
       {/* ── EVENT MODAL (Fullscreen / Sheet) ────────────────────────────── */}
       {selectedEvent && (
@@ -644,13 +778,3 @@ function StatusIcon({ icon: Icon, color, tag, label, hasComment }: any) {
   )
 }
 
-function NavItem({ icon: Icon, label, active, onClick }: any) {
-  return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1.5 group">
-      <div className={`w-12 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 -translate-y-1' : 'text-slate-400 hover:text-slate-600'}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <span className={`text-[8px] font-black tracking-widest transition-opacity duration-300 ${active ? 'opacity-100 text-blue-600' : 'opacity-40 text-slate-400'}`}>{label}</span>
-    </button>
-  )
-}
