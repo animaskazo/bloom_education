@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useMensajeriaGlobal } from '@/contexts/MensajeriaContext'
 import { supabase } from '@/lib/supabase'
+import PublicNavbar from '@/components/layout/PublicNavbar'
 
 import img1 from '../img/img-1.jpg'
 import img2 from '../img/img-2.jpg'
@@ -529,23 +530,8 @@ export default function LandingPage() {
       <div className="lp-root">
 
         {/* ── NAV ── */}
-        <nav className="lp-nav" id="lp-nav">
-          <button className="lp-nav-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            Bloom Education
-          </button>
-          <div className="lp-nav-links">
-            <a href="#lp-dashboard">Dashboard</a>
-            <a href="#lp-comunicacion">Comunicación</a>
-            <a href="#lp-cobranza">Cobranza</a>
-            <a href="#lp-modulos">Módulos</a>
-            <a href="#lp-testimonios">Testimonios</a>
-            <Link to="/pricing">Precios</Link>
-            <a href="#lp-contacto">Contacto</a>
-          </div>
-          <button className="lp-nav-cta" onClick={() => navigate('/login')}>
-            Ingresar →
-          </button>
-        </nav>
+        {/* ── NAV ── */}
+        <PublicNavbar />
 
         {/* ── HERO ── */}
         <section className="lp-hero">

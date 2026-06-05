@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMensajeriaGlobal } from '@/contexts/MensajeriaContext'
 import { supabase } from '@/lib/supabase'
+import PublicNavbar from '@/components/layout/PublicNavbar'
 
 export default function ContactoPage() {
   const navigate = useNavigate()
@@ -59,14 +60,7 @@ export default function ContactoPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">
-      <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white/80 backdrop-blur-md border-bottom border-slate-100 flex items-center justify-between px-8">
-        <button onClick={() => navigate('/')} className="text-xl font-bold bg-gradient-to-r from-rose-500 to-violet-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
-          🌸 Bloom Education
-        </button>
-        <button onClick={() => navigate('/')} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-          Volver al Inicio
-        </button>
-      </nav>
+      <PublicNavbar />
 
       <main className="max-w-7xl mx-auto pt-32 pb-20 px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
         <div className="space-y-8">

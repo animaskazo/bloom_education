@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { sendSalesLeadEmail } from '@/lib/emailService'
+import { useMensajeriaGlobal } from '@/contexts/MensajeriaContext'
+import { supabase } from '@/lib/supabase'
 import { Check, ArrowLeft, Send } from 'lucide-react'
+import PublicNavbar from '@/components/layout/PublicNavbar'
 
 interface Plan {
   id: string
@@ -18,14 +20,14 @@ export default function PricingPage() {
   const navigate = useNavigate()
   const [billingCycle, setBillingCycle] = useState<'mensual' | 'anual'>('mensual')
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null)
-  
+
   // Contact Form State
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [school, setSchool] = useState('')
   const [phone, setPhone] = useState('')
   const [message, setMessage] = useState('')
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -38,7 +40,7 @@ export default function PricingPage() {
     {
       id: 'base',
       name: 'Bloom Base',
-      priceMonthly: 1.5,
+      priceMonthly: 1.2,
       description: 'Para jardines que buscan digitalizarse sin fricción.',
       features: [
         'Agenda digital y control de asistencia diaria.',
@@ -53,7 +55,7 @@ export default function PricingPage() {
     {
       id: 'plus',
       name: 'Bloom Plus',
-      priceMonthly: 2.5,
+      priceMonthly: 2.3,
       description: 'Control total: alumnos y mensualidades en una sola pantalla.',
       features: [
         'Todo lo de Base, más:',
@@ -68,7 +70,7 @@ export default function PricingPage() {
     {
       id: 'premium',
       name: 'Bloom Premium',
-      priceMonthly: 4.5,
+      priceMonthly: 3.5,
       description: 'Piloto automático: cobranza integrada y decisiones con IA.',
       features: [
         'Todo lo de Plus, más:',
@@ -106,6 +108,8 @@ export default function PricingPage() {
     setMessage('')
   }
 
+  const { enviarMensaje } = useMensajeriaGlobal()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedPlan) return
@@ -113,35 +117,48 @@ export default function PricingPage() {
     setIsSubmitting(true)
     setErrorMessage(null)
 
-    const result = await sendSalesLeadEmail({
-      name,
-      email,
-      school,
-      phone,
-      planName: selectedPlan.name,
-      billingCycle,
-      message
-    })
+    try {
+      // 1. Guardar prospecto
+      try {
+        await supabase.from('prospectos_landing' as any).insert([{
+          nombre: name,
+          email: email,
+          jardin: school,
+          telefono: phone,
+          mensaje: `Plan: ${selectedPlan.name} (${billingCycle === 'anual' ? 'Anual' : 'Mensual'}). ${message}`,
+          fuente: `pricing_${selectedPlan.id}`
+        }])
+      } catch (dbErr) {
+        console.warn('DB Insert failed:', dbErr)
+      }
 
-    setIsSubmitting(false)
-    if (result.success) {
+      // 2. Enviar email usando enviarMensaje
+      await enviarMensaje({
+        destinatarios: [{ nombre: 'Soporte Bloom', email: 'bloom@digital-solutions.work' }],
+        asunto: `💼 Interés en Plan ${selectedPlan.name} - ${school}`,
+        mensaje: `Has recibido una consulta de ventas desde el módulo de Pricing.\n\n` +
+          `📦 Plan de Interés: ${selectedPlan.name} (${billingCycle === 'anual' ? 'Pago Anual - 10% Descuento' : 'Pago Mensual'})\n` +
+          `👤 Nombre: ${name}\n` +
+          `📧 Email: ${email}\n` +
+          `🏫 Jardín/Institución: ${school}\n` +
+          `📞 Teléfono: ${phone}\n\n` +
+          `💬 Mensaje adicional:\n${message || 'Sin mensaje adicional.'}`,
+        canal: 'email'
+      })
+
       setIsSuccess(true)
-    } else {
+    } catch (err) {
+      console.error(err)
       setErrorMessage('Ocurrió un error al enviar tu solicitud. Por favor intenta nuevamente.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-brand-500 selection:text-white">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-40 h-16 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-8">
-        <button onClick={() => navigate('/')} className="text-xl font-bold bg-gradient-to-r from-rose-500 to-violet-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
-          🌸 Bloom Education
-        </button>
-        <button onClick={() => navigate('/')} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1.5">
-          <ArrowLeft className="w-4 h-4" /> Volver al Inicio
-        </button>
-      </nav>
+      <PublicNavbar />
 
       {/* Hero Section */}
       <main className="max-w-7xl mx-auto pt-32 pb-24 px-6">
@@ -158,21 +175,19 @@ export default function PricingPage() {
           <div className="inline-flex items-center gap-3 bg-white border border-slate-200 p-1.5 rounded-full shadow-sm">
             <button
               onClick={() => setBillingCycle('mensual')}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-                billingCycle === 'mensual'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-950'
-              }`}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${billingCycle === 'mensual'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-950'
+                }`}
             >
               Pago Mensual
             </button>
             <button
               onClick={() => setBillingCycle('anual')}
-              className={`relative px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${
-                billingCycle === 'anual'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-950'
-              }`}
+              className={`relative px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${billingCycle === 'anual'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-950'
+                }`}
             >
               Pago Anual
               <span className="absolute -top-3 -right-3 bg-rose-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
@@ -188,7 +203,7 @@ export default function PricingPage() {
             // Determine styles
             let cardClasses = 'bg-white border border-slate-200'
             let ctaClasses = 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-            
+
             if (plan.featured) {
               cardClasses = 'bg-white border-2 border-brand-500 shadow-xl scale-100 lg:scale-[1.03] z-10 relative'
               ctaClasses = 'bg-brand-600 hover:bg-brand-700 text-white shadow-md'
