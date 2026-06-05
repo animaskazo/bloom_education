@@ -62,6 +62,7 @@ export default function PricingPage() {
         'Control de cupos y matrículas.',
         'Pagos a través de link.',
         'Aplicación para padres (Fotos, actividades y libreta virtual).',
+        'Calendario de actividades',
         'Soporte prioritario por WhatsApp.'
       ],
       ctaText: 'Elegir Plan Plus',
